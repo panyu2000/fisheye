@@ -252,6 +252,238 @@ def spherical_projection(image_path, camera_params, output_width=2048, output_he
     
     return spherical_img
 
+def perspective_projection(image_path, camera_params, output_width=1024, output_height=768,
+                          yaw_offset=0, pitch_offset=0, roll_offset=0, 
+                          fov_horizontal=90, virtual_fx=None, virtual_fy=None):
+    """
+    Project fisheye image to perspective projection (like a traditional camera view).
+    
+    Parameters:
+    - image_path: path to fisheye image
+    - camera_params: camera intrinsic parameters
+    - output_width, output_height: dimensions of output image
+    - yaw_offset, pitch_offset, roll_offset: rotation offsets in degrees
+    - fov_horizontal: horizontal field of view in degrees for the virtual camera
+    - virtual_fx, virtual_fy: virtual camera focal lengths (if None, calculated from FOV)
+    """
+    # Load the fisheye image
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Could not load image: {image_path}")
+    
+    height, width = img.shape[:2]
+    
+    # Create output image
+    perspective_img = np.zeros((output_height, output_width, 3), dtype=np.uint8)
+    
+    # Convert rotation offsets to radians
+    yaw_rad = np.radians(yaw_offset)
+    pitch_rad = np.radians(pitch_offset)
+    roll_rad = np.radians(roll_offset)
+    
+    # Calculate virtual camera parameters
+    if virtual_fx is None:
+        # Calculate focal length from horizontal FOV
+        virtual_fx = (output_width / 2.0) / np.tan(np.radians(fov_horizontal) / 2.0)
+    if virtual_fy is None:
+        virtual_fy = virtual_fx  # Assume square pixels
+    
+    virtual_cx = output_width / 2.0
+    virtual_cy = output_height / 2.0
+    
+    print(f"Creating perspective projection: {output_width}x{output_height}")
+    print(f"Virtual camera FOV: {fov_horizontal}°")
+    print(f"Virtual camera params: fx={virtual_fx:.1f}, fy={virtual_fy:.1f}")
+    print(f"Rotation: yaw={yaw_offset}°, pitch={pitch_offset}°, roll={roll_offset}°")
+    
+    # Create rotation matrices using standard camera coordinate conventions
+    # Yaw: rotation around Y-axis (left/right turn)
+    R_yaw = np.array([
+        [np.cos(yaw_rad), 0, np.sin(yaw_rad)],
+        [0, 1, 0],
+        [-np.sin(yaw_rad), 0, np.cos(yaw_rad)]
+    ])
+    
+    # Pitch: rotation around X-axis (up/down tilt)
+    R_pitch = np.array([
+        [1, 0, 0],
+        [0, np.cos(pitch_rad), -np.sin(pitch_rad)],
+        [0, np.sin(pitch_rad), np.cos(pitch_rad)]
+    ])
+    
+    # Roll: rotation around Z-axis (camera tilt)
+    R_roll = np.array([
+        [np.cos(roll_rad), -np.sin(roll_rad), 0],
+        [np.sin(roll_rad), np.cos(roll_rad), 0],
+        [0, 0, 1]
+    ])
+    
+    # Combined rotation matrix (apply in order: yaw, pitch, roll)
+    R_combined = R_roll @ R_pitch @ R_yaw
+    
+    for v in range(output_height):
+        for u in range(output_width):
+            # Convert output pixel to 3D ray direction in virtual camera coordinates
+            x_virtual = (u - virtual_cx) / virtual_fx
+            y_virtual = -(v - virtual_cy) / virtual_fy  # Negative to correct image orientation
+            z_virtual = 1.0
+            
+            # Create 3D direction vector
+            ray_direction = np.array([x_virtual, y_virtual, z_virtual])
+            ray_direction = ray_direction / np.linalg.norm(ray_direction)  # Normalize
+            
+            # Apply rotation to get direction in fisheye camera coordinate system
+            rotated_direction = R_combined @ ray_direction
+            
+            x_cam, y_cam, z_cam = rotated_direction
+            
+            # Skip if ray points backward (negative z)
+            if z_cam <= 0:
+                continue
+            
+            # Convert 3D direction to fisheye projection angles
+            theta = np.arccos(np.clip(z_cam, -1, 1))
+            
+            # Skip if outside fisheye's hemisphere coverage
+            if theta > np.pi/2:
+                continue
+            
+            # Calculate azimuth angle
+            phi = np.arctan2(-y_cam, x_cam)
+            
+            # Apply fisheye distortion model (forward projection)
+            k1, k2, k3, k4 = camera_params['k1'], camera_params['k2'], camera_params['k3'], camera_params['k4']
+            theta_d = theta * (1 + k1*theta**2 + k2*theta**4 + k3*theta**6 + k4*theta**8)
+            
+            # Convert to fisheye image coordinates
+            x_fish = camera_params['fx'] * theta_d * np.cos(phi) + camera_params['cx']
+            y_fish = camera_params['fy'] * theta_d * np.sin(phi) + camera_params['cy']
+            
+            # Check if coordinates are within image bounds
+            if 0 <= x_fish < width and 0 <= y_fish < height:
+                # Bilinear interpolation
+                x_floor, y_floor = int(x_fish), int(y_fish)
+                x_ceil, y_ceil = min(x_floor + 1, width - 1), min(y_floor + 1, height - 1)
+                
+                # Interpolation weights
+                wx = x_fish - x_floor
+                wy = y_fish - y_floor
+                
+                # Sample pixel values
+                pixel_tl = img[y_floor, x_floor]
+                pixel_tr = img[y_floor, x_ceil]
+                pixel_bl = img[y_ceil, x_floor]
+                pixel_br = img[y_ceil, x_ceil]
+                
+                # Bilinear interpolation
+                pixel_top = (1 - wx) * pixel_tl + wx * pixel_tr
+                pixel_bottom = (1 - wx) * pixel_bl + wx * pixel_br
+                pixel_final = (1 - wy) * pixel_top + wy * pixel_bottom
+                
+                perspective_img[v, u] = pixel_final.astype(np.uint8)
+    
+    return perspective_img
+
+def create_perspective_projections(image_path, camera_params):
+    """
+    Create multiple perspective projections with different viewing angles and FOVs.
+    """
+    base_name = os.path.splitext(image_path)[0]
+    outputs = []
+    
+    # Standard front view (like a normal camera)
+    print("\nCreating standard perspective view...")
+    standard_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=0, roll_offset=0,
+        fov_horizontal=90
+    )
+    standard_path = f"{base_name}_perspective_standard.jpg"
+    cv2.imwrite(standard_path, standard_view)
+    print(f"Standard perspective saved to: {standard_path}")
+    outputs.append(standard_path)
+    
+    # Wide angle view
+    print("Creating wide-angle perspective view...")
+    wide_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=0, roll_offset=0,
+        fov_horizontal=120
+    )
+    wide_path = f"{base_name}_perspective_wide.jpg"
+    cv2.imwrite(wide_path, wide_view)
+    print(f"Wide-angle perspective saved to: {wide_path}")
+    outputs.append(wide_path)
+    
+    # Narrow telephoto view
+    print("Creating telephoto perspective view...")
+    telephoto_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=0, roll_offset=0,
+        fov_horizontal=45
+    )
+    telephoto_path = f"{base_name}_perspective_telephoto.jpg"
+    cv2.imwrite(telephoto_path, telephoto_view)
+    print(f"Telephoto perspective saved to: {telephoto_path}")
+    outputs.append(telephoto_path)
+    
+    # Side view (90 degrees rotated)
+    print("Creating side perspective view...")
+    side_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=90, pitch_offset=0, roll_offset=0,
+        fov_horizontal=90
+    )
+    side_path = f"{base_name}_perspective_side.jpg"
+    cv2.imwrite(side_path, side_view)
+    print(f"Side perspective saved to: {side_path}")
+    outputs.append(side_path)
+    
+    # Looking up
+    print("Creating upward perspective view...")
+    upward_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=30, roll_offset=0,
+        fov_horizontal=90
+    )
+    upward_path = f"{base_name}_perspective_upward.jpg"
+    cv2.imwrite(upward_path, upward_view)
+    print(f"Upward perspective saved to: {upward_path}")
+    outputs.append(upward_path)
+    
+    # Looking down
+    print("Creating downward perspective view...")
+    downward_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=-30, roll_offset=0,
+        fov_horizontal=90
+    )
+    downward_path = f"{base_name}_perspective_downward.jpg"
+    cv2.imwrite(downward_path, downward_view)
+    print(f"Downward perspective saved to: {downward_path}")
+    outputs.append(downward_path)
+    
+    # Tilted view (with roll)
+    print("Creating tilted perspective view...")
+    tilted_view = perspective_projection(
+        image_path, camera_params,
+        output_width=1024, output_height=768,
+        yaw_offset=0, pitch_offset=0, roll_offset=15,
+        fov_horizontal=90
+    )
+    tilted_path = f"{base_name}_perspective_tilted.jpg"
+    cv2.imwrite(tilted_path, tilted_view)
+    print(f"Tilted perspective saved to: {tilted_path}")
+    outputs.append(tilted_path)
+    
+    return outputs
+
 def create_spherical_projections(image_path, camera_params):
     """
     Create multiple spherical projections with different viewing angles.
@@ -338,9 +570,23 @@ def main():
         spherical_outputs = create_spherical_projections(input_image, camera_params)
         
         print(f"\nSpherical projection completed successfully!")
-        print("Generated files:")
+        print("Generated spherical files:")
         for i, output_file in enumerate(spherical_outputs, 1):
             print(f"  {i}. {output_file}")
+        
+        # Create perspective projections
+        print("\n" + "="*60)
+        print("CREATING PERSPECTIVE PROJECTIONS")
+        print("="*60)
+        perspective_outputs = create_perspective_projections(input_image, camera_params)
+        
+        print(f"\nPerspective projection completed successfully!")
+        print("Generated perspective files:")
+        for i, output_file in enumerate(perspective_outputs, 1):
+            print(f"  {i}. {output_file}")
+        
+        print(f"\nAll projections completed successfully!")
+        print(f"Total files generated: {len(spherical_outputs) + len(perspective_outputs)}")
         
     except Exception as e:
         print(f"Error: {e}")
