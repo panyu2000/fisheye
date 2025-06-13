@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-from fisheye_rectify import parse_camera_params, spherical_projection
+from fisheye_rectify import parse_camera_params
+from spherical_projection import spherical_projection
 
 def create_custom_spherical_view():
     """
@@ -16,9 +17,9 @@ def create_custom_spherical_view():
     print("\n1. Creating wide panoramic view (270° horizontal)...")
     wide_panorama = spherical_projection(
         "fisheye_img.jpg", camera_params,
-        output_width=1200, output_height=800,
-        yaw_offset=0, pitch_offset=-30,
-        fov_horizontal=180, fov_vertical=120
+        output_width=1200 * 2, output_height=1000,
+        yaw_offset=0, pitch_offset=-20,
+        fov_horizontal=200, fov_vertical=80
     )
     cv2.imwrite("fisheye_img_wide_panorama.jpg", wide_panorama)
     print("Saved: fisheye_img_wide_panorama.jpg")
