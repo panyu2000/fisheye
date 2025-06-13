@@ -1,28 +1,112 @@
 import cv2
 import numpy as np
 import os
+from typing import Tuple, Dict, Optional
+from camera_params import CameraParams
 
-def spherical_projection(image_path, camera_params, output_width=2048, output_height=1024, 
-                        yaw_offset=0, pitch_offset=0, fov_horizontal=360, fov_vertical=180):
+def apply_spherical_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> np.ndarray:
+  """
+  Apply spherical projection mapping to fisheye image using pre-generated maps.
+  
+  Parameters:
+  - img: fisheye image as numpy array
+  - map_x: array of x coordinates in fisheye image for each output pixel
+  - map_y: array of y coordinates in fisheye image for each output pixel
+  
+  Returns:
+  - spherical_img: projected spherical panorama image
+  """
+  if img is None:
+    raise ValueError("Input image is None")
+  
+  height, width = img.shape[:2]
+  output_height, output_width = map_x.shape
+  
+  # Create output image
+  spherical_img = np.zeros((output_height, output_width, 3), dtype=np.uint8)
+  
+  print(f"Applying spherical projection maps to create {output_width}x{output_height} image")
+  
+  for v in range(output_height):
+    for u in range(output_width):
+      x_fish = map_x[v, u]
+      y_fish = map_y[v, u]
+      
+      # Check if coordinates are within image bounds
+      if 0 <= x_fish < width and 0 <= y_fish < height:
+        # Bilinear interpolation
+        x_floor, y_floor = int(x_fish), int(y_fish)
+        x_ceil, y_ceil = min(x_floor + 1, width - 1), min(y_floor + 1, height - 1)
+        
+        # Interpolation weights
+        wx = x_fish - x_floor
+        wy = y_fish - y_floor
+        
+        # Sample pixel values
+        pixel_tl = img[y_floor, x_floor]
+        pixel_tr = img[y_floor, x_ceil]
+        pixel_bl = img[y_ceil, x_floor]
+        pixel_br = img[y_ceil, x_ceil]
+        
+        # Bilinear interpolation
+        pixel_top = (1 - wx) * pixel_tl + wx * pixel_tr
+        pixel_bottom = (1 - wx) * pixel_bl + wx * pixel_br
+        pixel_final = (1 - wy) * pixel_top + wy * pixel_bottom
+        
+        spherical_img[v, u] = pixel_final.astype(np.uint8)
+  
+  return spherical_img
+
+class SphericalProjection:
+  """
+  Spherical projection processor for fisheye cameras with caching capabilities.
+  
+  This class represents a fisheye camera and provides efficient spherical projection
+  functionality with automatic caching of projection maps for improved performance
+  when processing multiple images with the same projection parameters.
+  """
+  
+  def __init__(self, camera_params: CameraParams, input_image_size: Optional[Tuple[int, int]] = None):
     """
-    Project fisheye image to spherical projection (equirectangular panorama).
+    Initialize SphericalProjection with camera parameters.
     
     Parameters:
-    - image_path: path to fisheye image
-    - camera_params: camera intrinsic parameters
-    - output_width, output_height: dimensions of output panorama
-    - yaw_offset, pitch_offset: rotation offsets in degrees
-    - fov_horizontal, fov_vertical: field of view coverage in degrees
+    - camera_params: CameraParams object
+    - input_image_size: (width, height) of input fisheye images, optional for validation
     """
-    # Load the fisheye image
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError(f"Could not load image: {image_path}")
+    self.camera_params = camera_params
+    self.input_image_size = input_image_size
     
-    height, width = img.shape[:2]
+    # Cache for projection maps - key is projection parameters tuple
+    self._map_cache: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
     
-    # Create output image
-    spherical_img = np.zeros((output_height, output_width, 3), dtype=np.uint8)
+    # Extract camera parameters for easy access
+    self.fx = camera_params.fx
+    self.fy = camera_params.fy
+    self.cx = camera_params.cx
+    self.cy = camera_params.cy
+    self.k1 = camera_params.k1
+    self.k2 = camera_params.k2
+    self.k3 = camera_params.k3
+    self.k4 = camera_params.k4
+  
+  def _generate_cache_key(self, output_width: int, output_height: int, 
+                         yaw_offset: float, pitch_offset: float, 
+                         fov_horizontal: float, fov_vertical: float) -> str:
+    """Generate a unique cache key for projection parameters."""
+    return f"{output_width}x{output_height}_yaw{yaw_offset:.3f}_pitch{pitch_offset:.3f}_fovh{fov_horizontal:.1f}_fovv{fov_vertical:.1f}"
+  
+  def _generate_projection_maps(self, output_width: int, output_height: int, 
+                               yaw_offset: float, pitch_offset: float, 
+                               fov_horizontal: float, fov_vertical: float) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generate projection maps using the camera's parameters.
+    
+    This is an internal method that uses the stored camera parameters.
+    """
+    # Create mapping arrays
+    map_x = np.full((output_height, output_width), -1.0, dtype=np.float32)
+    map_y = np.full((output_height, output_width), -1.0, dtype=np.float32)
     
     # Convert offsets to radians
     yaw_offset_rad = np.radians(yaw_offset)
@@ -32,67 +116,131 @@ def spherical_projection(image_path, camera_params, output_width=2048, output_he
     fov_h_rad = np.radians(fov_horizontal)
     fov_v_rad = np.radians(fov_vertical)
     
-    print(f"Creating spherical projection: {output_width}x{output_height}")
+    print(f"Generating projection maps for camera: {output_width}x{output_height}")
     print(f"FOV: {fov_horizontal}° x {fov_vertical}°")
     print(f"Offsets: yaw={yaw_offset}°, pitch={pitch_offset}°")
     
     for v in range(output_height):
-        for u in range(output_width):
-            # Convert output pixel to viewing direction angles
-            # Map u from 0 to output_width to longitude from -fov_h/2 to +fov_h/2
-            longitude = (u / output_width - 0.5) * fov_h_rad + yaw_offset_rad
-            
-            # Map v from 0 to output_height to latitude from +fov_v/2 to -fov_v/2  
-            latitude = (0.5 - v / output_height) * fov_v_rad + pitch_offset_rad
-            
-            # Convert spherical angles to 3D unit vector (fisheye camera coordinate system)
-            # Fisheye convention: z-axis points forward (into the scene), x-axis right, y-axis down
-            x_cam = np.cos(latitude) * np.sin(longitude)  # Right direction
-            y_cam = np.sin(latitude)                      # Up direction (positive for upward)
-            z_cam = np.cos(latitude) * np.cos(longitude)  # Forward direction
-            
-            # Convert 3D vector to fisheye projection angles
-            # Calculate incident angle from camera's forward axis (z-axis)
-            theta = np.arccos(np.clip(z_cam, -1, 1))
-            
-            # # Skip if outside fisheye's hemisphere coverage
-            # if theta > np.pi/2:
-            #     continue
-                
-            # Calculate azimuth angle in image plane
-            # Correct for 90-degree rotation by swapping x and y components
-            phi = np.arctan2(-y_cam, x_cam)
-            
-            # Apply fisheye distortion model (forward projection)
-            k1, k2, k3, k4 = camera_params['k1'], camera_params['k2'], camera_params['k3'], camera_params['k4']
-            theta_d = theta * (1 + k1*theta**2 + k2*theta**4 + k3*theta**6 + k4*theta**8)
-            
-            # Convert to fisheye image coordinates
-            # Map from polar to Cartesian coordinates in image plane
-            x_fish = camera_params['fx'] * theta_d * np.cos(phi) + camera_params['cx']
-            y_fish = camera_params['fy'] * theta_d * np.sin(phi) + camera_params['cy']
-            
-            # Check if coordinates are within image bounds
-            if 0 <= x_fish < width and 0 <= y_fish < height:
-                # Bilinear interpolation
-                x_floor, y_floor = int(x_fish), int(y_fish)
-                x_ceil, y_ceil = min(x_floor + 1, width - 1), min(y_floor + 1, height - 1)
-                
-                # Interpolation weights
-                wx = x_fish - x_floor
-                wy = y_fish - y_floor
-                
-                # Sample pixel values
-                pixel_tl = img[y_floor, x_floor]
-                pixel_tr = img[y_floor, x_ceil]
-                pixel_bl = img[y_ceil, x_floor]
-                pixel_br = img[y_ceil, x_ceil]
-                
-                # Bilinear interpolation
-                pixel_top = (1 - wx) * pixel_tl + wx * pixel_tr
-                pixel_bottom = (1 - wx) * pixel_bl + wx * pixel_br
-                pixel_final = (1 - wy) * pixel_top + wy * pixel_bottom
-                
-                spherical_img[v, u] = pixel_final.astype(np.uint8)
+      for u in range(output_width):
+        # Convert output pixel to viewing direction angles
+        longitude = (u / output_width - 0.5) * fov_h_rad + yaw_offset_rad
+        latitude = (0.5 - v / output_height) * fov_v_rad + pitch_offset_rad
+        
+        # Convert spherical angles to 3D unit vector
+        x_cam = np.cos(latitude) * np.sin(longitude)
+        y_cam = np.sin(latitude)
+        z_cam = np.cos(latitude) * np.cos(longitude)
+        
+        # Convert 3D vector to fisheye projection angles
+        theta = np.arccos(np.clip(z_cam, -1, 1))
+
+        # # Skip if outside fisheye's hemisphere coverage
+        # if theta > np.pi/2:
+        #   continue
+          
+        phi = np.arctan2(-y_cam, x_cam)
+        
+        # Apply fisheye distortion model
+        theta_d = theta * (1 + self.k1*theta**2 + self.k2*theta**4 + self.k3*theta**6 + self.k4*theta**8)
+        
+        # Convert to fisheye image coordinates
+        x_fish = self.fx * theta_d * np.cos(phi) + self.cx
+        y_fish = self.fy * theta_d * np.sin(phi) + self.cy
+        
+        # Store coordinates in maps
+        map_x[v, u] = x_fish
+        map_y[v, u] = y_fish
     
-    return spherical_img
+    return map_x, map_y
+  
+  def get_projection_maps(self, output_width: int = 2048, output_height: int = 1024, 
+                         yaw_offset: float = 0, pitch_offset: float = 0, 
+                         fov_horizontal: float = 360, fov_vertical: float = 180) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Get projection maps with caching.
+    
+    Returns cached maps if available, otherwise generates and caches new maps.
+    
+    Parameters:
+    - output_width, output_height: dimensions of output panorama
+    - yaw_offset, pitch_offset: rotation offsets in degrees
+    - fov_horizontal, fov_vertical: field of view coverage in degrees
+    
+    Returns:
+    - map_x, map_y: projection mapping arrays
+    """
+    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    
+    if cache_key in self._map_cache:
+      print(f"Using cached projection maps: {cache_key}")
+      return self._map_cache[cache_key]
+    
+    # Generate new maps
+    map_x, map_y = self._generate_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    
+    # Cache the maps
+    self._map_cache[cache_key] = (map_x, map_y)
+    print(f"Cached projection maps: {cache_key}")
+    
+    return map_x, map_y
+  
+  def project(self, input_img: np.ndarray, output_width: int = 2048, output_height: int = 1024, 
+             yaw_offset: float = 0, pitch_offset: float = 0, 
+             fov_horizontal: float = 360, fov_vertical: float = 180) -> np.ndarray:
+    """
+    Apply spherical projection to input fisheye image.
+    
+    Parameters:
+    - input_img: fisheye image as numpy array
+    - output_width, output_height: dimensions of output panorama
+    - yaw_offset, pitch_offset: rotation offsets in degrees
+    - fov_horizontal, fov_vertical: field of view coverage in degrees
+    
+    Returns:
+    - spherical_img: projected spherical panorama image
+    """
+    # Validate input image size if specified
+    if self.input_image_size is not None:
+      img_height, img_width = input_img.shape[:2]
+      expected_width, expected_height = self.input_image_size
+      if img_width != expected_width or img_height != expected_height:
+        raise ValueError(f"Input image size {img_width}x{img_height} does not match expected size {expected_width}x{expected_height}")
+    
+    # Get projection maps (cached or generate new)
+    map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    
+    # Apply projection maps
+    return apply_spherical_projection_maps(input_img, map_x, map_y)
+  
+  def clear_cache(self):
+    """Clear all cached projection maps."""
+    self._map_cache.clear()
+    print("Projection map cache cleared")
+  
+  def get_cache_info(self) -> Dict[str, int]:
+    """
+    Get information about the current cache state.
+    
+    Returns:
+    - Dictionary with cache statistics
+    """
+    total_memory = 0
+    for map_x, map_y in self._map_cache.values():
+      total_memory += map_x.nbytes + map_y.nbytes
+    
+    return {
+      'cached_projections': len(self._map_cache),
+      'memory_usage_bytes': total_memory,
+      'memory_usage_mb': total_memory / (1024 * 1024)
+    }
+  
+  def remove_cached_projection(self, output_width: int, output_height: int, 
+                              yaw_offset: float, pitch_offset: float, 
+                              fov_horizontal: float, fov_vertical: float):
+    """Remove a specific projection from cache."""
+    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    if cache_key in self._map_cache:
+      del self._map_cache[cache_key]
+      print(f"Removed cached projection: {cache_key}")
+    else:
+      print(f"Projection not in cache: {cache_key}")
