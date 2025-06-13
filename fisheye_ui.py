@@ -3,7 +3,8 @@ from tkinter import ttk, messagebox
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
-from fisheye_rectify import parse_camera_params, perspective_projection
+from camera_params import parse_camera_params
+from perspective_projection import PerspectiveProjection
 import threading
 import queue
 
@@ -19,6 +20,13 @@ class FisheyeUI:
             self.fisheye_img = cv2.imread("fisheye_img.jpg")
             if self.fisheye_img is None:
                 raise FileNotFoundError("Could not load fisheye_img.jpg")
+                
+            # Get image dimensions for validation
+            img_height, img_width = self.fisheye_img.shape[:2]
+            
+            # Create PerspectiveProjection instance with caching capabilities
+            self.projector = PerspectiveProjection(self.camera_params, input_image_size=(img_width, img_height))
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load files: {e}")
             return
@@ -289,10 +297,9 @@ class FisheyeUI:
             virtual_fx = params['virtual_fx'] if params['virtual_fx'] > 0 else None
             virtual_fy = params['virtual_fy'] if params['virtual_fy'] > 0 else None
             
-            # Generate perspective projection
-            projected_img = perspective_projection(
-                "fisheye_img.jpg",
-                self.camera_params,
+            # Generate perspective projection using the PerspectiveProjection class
+            projected_img = self.projector.project(
+                self.fisheye_img,
                 output_width=params['output_width'],
                 output_height=params['output_height'],
                 yaw_offset=params['yaw_offset'],
