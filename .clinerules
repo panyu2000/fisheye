@@ -1,0 +1,88 @@
+# Cline Rules for Fisheye Image Processing Project
+
+## Project Overview
+This is a Python computer vision project focused on fisheye image rectification and projection.
+
+## Python Style Guidelines
+
+### Code Style
+- Follow PEP 8 style guidelines
+- Use 2 spaces for indentation (no tabs)
+- Maximum line length: 120 characters (allowing for complex mathematical expressions)
+- Use snake_case for function and variable names
+- Use PascalCase for class names
+- Use UPPER_CASE for constants
+- Add type hint to function parameters and return values when possible
+
+### Import Organization
+- Standard library imports first
+- Third-party imports second (cv2, numpy, PIL, tkinter)
+- Local module imports last
+- Use absolute imports when possible
+- Group related imports together with blank lines between groups
+
+### Docstrings and Comments
+- Use triple quotes for docstrings
+- Include parameter descriptions and types in docstrings
+- Document mathematical formulas and coordinate system conventions
+- Explain camera model assumptions and coordinate transformations
+- Add inline comments for complex mathematical operations
+
+### Error Handling
+- Use try-catch blocks for file I/O operations
+- Validate image loading with proper error messages
+- Check array bounds before accessing pixels
+- Validate camera parameter formats and ranges
+- Provide meaningful error messages with context
+
+## Computer Vision Specific Guidelines
+
+### Camera Parameters
+- Always validate camera intrinsic parameters (fx, fy, cx, cy)
+- Check distortion coefficients for reasonable ranges
+- Document coordinate system conventions (OpenCV vs. other standards)
+
+### Image Processing
+- Use cv2.imread() for loading images, check for None return
+- Prefer cv2.imwrite() for saving images with quality control
+- Use proper data types: np.float64 for calculations, np.uint8 for images
+
+### Mathematical Operations
+- Use np.clip() to prevent out-of-range values in trigonometric functions
+- Normalize vectors before geometric calculations
+- Use appropriate numerical precision for iterative algorithms
+- Document coordinate system transformations clearly
+- Apply proper rotation matrix conventions (right-hand rule)
+
+### Performance Considerations
+- Use NumPy vectorized operations when possible
+- Consider threading for computationally intensive operations
+- Implement progress indicators for long-running processes
+- Cache expensive calculations when parameters don't change
+- Use appropriate image sizes for real-time applications
+
+## File Organization
+
+### Project Structure
+- Keep main algorithms in separate modules
+- Separate UI code from core algorithms
+- Use demo scripts for showcasing functionality
+- Keep configuration files (cameras.txt) in project root
+
+### Naming Conventions
+- Use descriptive filenames: fisheye_rectify.py, spherical_projection.py
+- Include output type in generated filenames: *_rectified.jpg, *_perspective.jpg
+- Use systematic naming for batch outputs with parameters
+
+## Best Practices Summary
+
+1. Always validate inputs before processing
+2. Use appropriate numerical precision for calculations
+3. Implement proper error handling and user feedback
+4. Document coordinate systems and mathematical conventions
+5. Separate algorithmic code from UI code
+6. Use threading for responsive user interfaces
+7. Provide meaningful parameter names and ranges
+8. Test with various input conditions and edge cases
+9. Follow OpenCV conventions for camera models
+10. Maintain backward compatibility when updating algorithms
