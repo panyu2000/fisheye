@@ -160,8 +160,8 @@ class PerspectiveProjection:
       [0, 0, 1]
     ])
     
-    # Combined rotation matrix (apply in order: yaw, pitch, roll)
-    R_combined = R_roll @ R_pitch @ R_yaw
+    # Combined rotation matrix (apply in order: roll, pitch, yaw)
+    R_combined = R_yaw @ R_pitch @ R_roll
     
     for v in range(output_height):
       for u in range(output_width):
