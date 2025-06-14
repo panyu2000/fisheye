@@ -18,8 +18,8 @@ def create_custom_spherical_view():
   # Get image dimensions for validation
   img_height, img_width = fisheye_img.shape[:2]
   
-  # Create SphericalProjection instance with caching capabilities
-  projector = SphericalProjection(camera_params, input_image_size=(img_width, img_height))
+  # Create SphericalProjection instance with caching capabilities and vectorized processing
+  projector = SphericalProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
   
   print("Creating custom spherical projection views using SphericalProjection class...")
   print("This demonstrates the flexibility and caching capabilities of the class.")
