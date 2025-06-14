@@ -26,6 +26,7 @@ Author: Pan Yu
 
 import numpy as np
 import yaml
+from typing import Optional, Dict, Union, Tuple, Any
 
 
 class CameraParams:
@@ -36,9 +37,19 @@ class CameraParams:
   for the OpenCV fisheye camera model, following the format defined in cameras.txt.
   """
   
-  def __init__(self, camera_id=None, model=None, width=None, height=None,
-               fx=None, fy=None, cx=None, cy=None,
-               k1=None, k2=None, k3=None, k4=None):
+  def __init__(self, 
+               camera_id: Optional[str] = None, 
+               model: Optional[str] = None, 
+               width: Optional[int] = None, 
+               height: Optional[int] = None,
+               fx: Optional[float] = None, 
+               fy: Optional[float] = None, 
+               cx: Optional[float] = None, 
+               cy: Optional[float] = None,
+               k1: Optional[float] = None, 
+               k2: Optional[float] = None, 
+               k3: Optional[float] = None, 
+               k4: Optional[float] = None) -> None:
     """
     Initialize camera parameters.
     
@@ -51,20 +62,20 @@ class CameraParams:
     - cx, cy: principal point coordinates in pixels
     - k1, k2, k3, k4: fisheye distortion coefficients
     """
-    self.camera_id = camera_id
-    self.model = model
-    self.width = width
-    self.height = height
-    self.fx = fx
-    self.fy = fy
-    self.cx = cx
-    self.cy = cy
-    self.k1 = k1
-    self.k2 = k2
-    self.k3 = k3
-    self.k4 = k4
+    self.camera_id: Optional[str] = camera_id
+    self.model: Optional[str] = model
+    self.width: Optional[int] = width
+    self.height: Optional[int] = height
+    self.fx: Optional[float] = fx
+    self.fy: Optional[float] = fy
+    self.cx: Optional[float] = cx
+    self.cy: Optional[float] = cy
+    self.k1: Optional[float] = k1
+    self.k2: Optional[float] = k2
+    self.k3: Optional[float] = k3
+    self.k4: Optional[float] = k4
   
-  def to_dict(self):
+  def to_dict(self) -> Dict[str, Any]:
     """
     Convert camera parameters to dictionary format.
     
@@ -86,7 +97,7 @@ class CameraParams:
       'k4': self.k4
     }
   
-  def get_camera_matrix(self):
+  def get_camera_matrix(self) -> np.ndarray:
     """
     Get OpenCV camera matrix K.
     
@@ -99,7 +110,7 @@ class CameraParams:
       [0, 0, 1]
     ], dtype=np.float64)
   
-  def get_distortion_coefficients(self):
+  def get_distortion_coefficients(self) -> np.ndarray:
     """
     Get fisheye distortion coefficients.
     
@@ -108,7 +119,7 @@ class CameraParams:
     """
     return np.array([self.k1, self.k2, self.k3, self.k4], dtype=np.float64)
   
-  def get_image_size(self):
+  def get_image_size(self) -> Tuple[int, int]:
     """
     Get image dimensions as tuple.
     
@@ -117,7 +128,7 @@ class CameraParams:
     """
     return (self.width, self.height)
   
-  def validate(self):
+  def validate(self) -> None:
     """
     Validate camera parameters for reasonable ranges.
     
@@ -139,7 +150,7 @@ class CameraParams:
     if any(abs(k) > 10.0 for k in distortion_values):
       raise ValueError(f"Distortion coefficients seem unreasonable: {distortion_values}")
   
-  def __str__(self):
+  def __str__(self) -> str:
     """String representation of camera parameters."""
     return (f"CameraParams(id={self.camera_id}, model={self.model}, "
             f"size={self.width}x{self.height}, "
@@ -147,12 +158,12 @@ class CameraParams:
             f"cx={self.cx:.1f}, cy={self.cy:.1f}, "
             f"k1={self.k1:.6f}, k2={self.k2:.6f}, k3={self.k3:.6f}, k4={self.k4:.6f})")
   
-  def __repr__(self):
+  def __repr__(self) -> str:
     """Detailed representation of camera parameters."""
     return self.__str__()
 
 
-def parse_camera_params(filename):
+def parse_camera_params(filename: str) -> CameraParams:
   """
   Parse camera parameters from YAML file and return CameraParams object.
   
@@ -228,7 +239,7 @@ def parse_camera_params(filename):
     raise ValueError(f"Invalid parameter format in YAML file: {e}")
 
 
-def parse_camera_params_dict(filename):
+def parse_camera_params_dict(filename: str) -> Dict[str, Any]:
   """
   Parse camera parameters from file and return dictionary format.
   
