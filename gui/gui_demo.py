@@ -59,12 +59,10 @@ class FisheyeProjectionGUI:
       # Create projection instances with caching capabilities
       self.perspective_projector = PerspectiveProjection(
         self.camera_params, 
-        input_image_size=(img_width, img_height), 
         use_vectorized=True
       )
       self.spherical_projector = SphericalProjection(
         self.camera_params, 
-        input_image_size=(img_width, img_height), 
         use_vectorized=True
       )
       

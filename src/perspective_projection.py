@@ -34,7 +34,6 @@ from .camera_params import CameraParams
 def apply_perspective_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> np.ndarray:
   """
   Apply perspective projection mapping to fisheye image using pre-generated maps.
-  Now uses OpenCV's highly optimized remap function for 50-100x speedup.
   
   Parameters:
   - img: fisheye image as numpy array
@@ -55,7 +54,6 @@ def apply_perspective_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y:
   start_time = time.time()
   
   # Use OpenCV's highly optimized remap function with bilinear interpolation
-  # This replaces the slow nested Python loops with optimized C++ implementation
   result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
   
   remap_time = time.time() - start_time
@@ -72,17 +70,15 @@ class PerspectiveProjection:
   when processing multiple images with the same projection parameters.
   """
   
-  def __init__(self, camera_params: CameraParams, input_image_size: Optional[Tuple[int, int]] = None, use_vectorized: bool = True):
+  def __init__(self, camera_params: CameraParams, use_vectorized: bool = True):
     """
     Initialize PerspectiveProjection with camera parameters.
     
     Parameters:
     - camera_params: CameraParams object
-    - input_image_size: (width, height) of input fisheye images, optional for validation
     - use_vectorized: if True, use fast vectorized map generation; if False, use reference implementation
     """
     self.camera_params = camera_params
-    self.input_image_size = input_image_size
     self.use_vectorized = use_vectorized
     
     # Cache for projection maps - key is projection parameters tuple
@@ -448,12 +444,11 @@ class PerspectiveProjection:
     Returns:
     - perspective_img: projected perspective image
     """
-    # Validate input image size if specified
-    if self.input_image_size is not None:
-      img_height, img_width = input_img.shape[:2]
-      expected_width, expected_height = self.input_image_size
-      if img_width != expected_width or img_height != expected_height:
-        raise ValueError(f"Input image size {img_width}x{img_height} does not match expected size {expected_width}x{expected_height}")
+    # Validate input image size against camera parameters
+    img_height, img_width = input_img.shape[:2]
+    expected_width, expected_height = self.camera_params.width, self.camera_params.height
+    if img_width != expected_width or img_height != expected_height:
+      raise ValueError(f"Input image size {img_width}x{img_height} does not match camera parameters {expected_width}x{expected_height}")
     
     # Get projection maps (cached or generate new)
     map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, 

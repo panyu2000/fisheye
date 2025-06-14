@@ -22,7 +22,7 @@ def create_custom_perspective_view():
   img_height, img_width = fisheye_img.shape[:2]
   
   # Create PerspectiveProjection instance with caching capabilities and vectorized processing
-  projector = PerspectiveProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
+  projector = PerspectiveProjection(camera_params, use_vectorized=True)
   
   print("Creating custom perspective projection views using PerspectiveProjection class...")
   print("This demonstrates the flexibility and caching capabilities of the class.")
@@ -75,7 +75,7 @@ def demonstrate_fov_comparison():
     raise ValueError("Could not load data/fisheye_img.jpg")
   
   img_height, img_width = fisheye_img.shape[:2]
-  projector = PerspectiveProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
+  projector = PerspectiveProjection(camera_params, use_vectorized=True)
   
   fov_angles = [20, 35, 50, 75, 90, 120, 150, 160, 170, 180]
   
@@ -111,7 +111,7 @@ def demonstrate_rotation_effects():
     raise ValueError("Could not load data/fisheye_img.jpg")
   
   img_height, img_width = fisheye_img.shape[:2]
-  projector = PerspectiveProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
+  projector = PerspectiveProjection(camera_params, use_vectorized=True)
   
   # Yaw rotation sequence
   print("Creating yaw rotation sequence...")
