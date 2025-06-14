@@ -23,11 +23,12 @@ This project provides tools for converting fisheye camera images into different 
 The project includes an interactive GUI application that provides real-time visualization and control over fisheye image projections,
 given virtual camera parameter set from the UI.
 
-![Perspective Projection GUI](docs/images/gui_perspective.jpg)
-*Perspective projection interface with real-time parameter controls*
+![GUI Demo Animation](docs/videos/gui_demo.gif)
+*Interactive GUI demonstration showing real-time fisheye projection controls*
 
-![Spherical Projection GUI](docs/images/gui_spherical.jpg)
-*Spherical projection interface with panoramic view generation*
+It supports
+* Perspective projection interface with real-time parameter controls
+* Spherical projection interface with panoramic view generation
 
 Launch the GUI demo:
 
