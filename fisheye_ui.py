@@ -98,7 +98,7 @@ class FisheyeUI:
     ttk.Label(parent, text="Width:").grid(row=row, column=0, sticky=tk.W, padx=(10, 5))
     width_spinbox = ttk.Spinbox(parent, from_=200, to=2000, increment=50, textvariable=self.params['output_width'], width=10)
     width_spinbox.grid(row=row, column=1, sticky=tk.W, pady=2)
-    width_spinbox.bind('<KeyRelease>', self.on_param_change)
+    width_spinbox.bind('<Return>', self.on_param_change)
     width_spinbox.bind('<<Increment>>', self.on_param_change)
     width_spinbox.bind('<<Decrement>>', self.on_param_change)
     row += 1
@@ -106,7 +106,7 @@ class FisheyeUI:
     ttk.Label(parent, text="Height:").grid(row=row, column=0, sticky=tk.W, padx=(10, 5))
     height_spinbox = ttk.Spinbox(parent, from_=200, to=2000, increment=50, textvariable=self.params['output_height'], width=10)
     height_spinbox.grid(row=row, column=1, sticky=tk.W, pady=2)
-    height_spinbox.bind('<KeyRelease>', self.on_param_change)
+    height_spinbox.bind('<Return>', self.on_param_change)
     height_spinbox.bind('<<Increment>>', self.on_param_change)
     height_spinbox.bind('<<Decrement>>', self.on_param_change)
     row += 1
@@ -128,11 +128,11 @@ class FisheyeUI:
     
     yaw_control_frame = ttk.Frame(parent)
     yaw_control_frame.grid(row=row, column=0, columnspan=2, pady=2)
-    ttk.Button(yaw_control_frame, text="◀", width=3, command=lambda: self.adjust_rotation('yaw', -10)).pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(yaw_control_frame, text="-", width=3, command=lambda: self.adjust_rotation('yaw', -10)).pack(side=tk.LEFT, padx=(0, 2))
     yaw_entry = ttk.Entry(yaw_control_frame, textvariable=self.params['yaw_offset'], width=8)
     yaw_entry.pack(side=tk.LEFT, padx=2)
     yaw_entry.bind('<Return>', self.on_param_change)
-    ttk.Button(yaw_control_frame, text="▶", width=3, command=lambda: self.adjust_rotation('yaw', 10)).pack(side=tk.LEFT, padx=(2, 0))
+    ttk.Button(yaw_control_frame, text="+", width=3, command=lambda: self.adjust_rotation('yaw', 10)).pack(side=tk.LEFT, padx=(2, 0))
     row += 1
     
     # Pitch
@@ -145,11 +145,11 @@ class FisheyeUI:
     
     pitch_control_frame = ttk.Frame(parent)
     pitch_control_frame.grid(row=row, column=0, columnspan=2, pady=2)
-    ttk.Button(pitch_control_frame, text="◀", width=3, command=lambda: self.adjust_rotation('pitch', -10)).pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(pitch_control_frame, text="-", width=3, command=lambda: self.adjust_rotation('pitch', -10)).pack(side=tk.LEFT, padx=(0, 2))
     pitch_entry = ttk.Entry(pitch_control_frame, textvariable=self.params['pitch_offset'], width=8)
     pitch_entry.pack(side=tk.LEFT, padx=2)
     pitch_entry.bind('<Return>', self.on_param_change)
-    ttk.Button(pitch_control_frame, text="▶", width=3, command=lambda: self.adjust_rotation('pitch', 10)).pack(side=tk.LEFT, padx=(2, 0))
+    ttk.Button(pitch_control_frame, text="+", width=3, command=lambda: self.adjust_rotation('pitch', 10)).pack(side=tk.LEFT, padx=(2, 0))
     row += 1
     
     # Roll
@@ -162,11 +162,11 @@ class FisheyeUI:
     
     roll_control_frame = ttk.Frame(parent)
     roll_control_frame.grid(row=row, column=0, columnspan=2, pady=2)
-    ttk.Button(roll_control_frame, text="◀", width=3, command=lambda: self.adjust_rotation('roll', -10)).pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(roll_control_frame, text="-", width=3, command=lambda: self.adjust_rotation('roll', -10)).pack(side=tk.LEFT, padx=(0, 2))
     roll_entry = ttk.Entry(roll_control_frame, textvariable=self.params['roll_offset'], width=8)
     roll_entry.pack(side=tk.LEFT, padx=2)
     roll_entry.bind('<Return>', self.on_param_change)
-    ttk.Button(roll_control_frame, text="▶", width=3, command=lambda: self.adjust_rotation('roll', 10)).pack(side=tk.LEFT, padx=(2, 0))
+    ttk.Button(roll_control_frame, text="+", width=3, command=lambda: self.adjust_rotation('roll', 10)).pack(side=tk.LEFT, padx=(2, 0))
     row += 1
     
     # Field of view
@@ -186,11 +186,11 @@ class FisheyeUI:
     
     fov_control_frame = ttk.Frame(parent)
     fov_control_frame.grid(row=row, column=0, columnspan=2, pady=2)
-    ttk.Button(fov_control_frame, text="◀", width=3, command=lambda: self.adjust_fov(-10)).pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(fov_control_frame, text="-", width=3, command=lambda: self.adjust_fov(-10)).pack(side=tk.LEFT, padx=(0, 2))
     fov_entry = ttk.Entry(fov_control_frame, textvariable=self.params['fov_horizontal'], width=8)
     fov_entry.pack(side=tk.LEFT, padx=2)
     fov_entry.bind('<Return>', self.on_param_change)
-    ttk.Button(fov_control_frame, text="▶", width=3, command=lambda: self.adjust_fov(10)).pack(side=tk.LEFT, padx=(2, 0))
+    ttk.Button(fov_control_frame, text="+", width=3, command=lambda: self.adjust_fov(10)).pack(side=tk.LEFT, padx=(2, 0))
     row += 1
     
     # Virtual camera parameters
@@ -318,8 +318,8 @@ class FisheyeUI:
     if hasattr(self, 'pending_update_id') and self.pending_update_id:
       self.root.after_cancel(self.pending_update_id)
     
-    # Schedule new update after 200ms delay from this input
-    self.pending_update_id = self.root.after(200, self.delayed_update)
+    # Schedule new update after 100ms delay from this input
+    self.pending_update_id = self.root.after(100, self.delayed_update)
   
   def delayed_update(self) -> None:
     self.pending_update_id = None
