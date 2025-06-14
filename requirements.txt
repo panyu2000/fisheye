@@ -1,0 +1,17 @@
+# Fisheye Image Processing Project Dependencies
+# Install with: pip install -r requirements.txt
+
+# Computer Vision and Image Processing
+opencv-python>=4.5.0
+
+# Numerical Computing
+numpy>=1.19.0
+
+# Image Processing and GUI
+Pillow>=8.0.0
+
+# YAML Configuration File Parsing
+PyYAML>=5.4.0
+
+# GUI Framework (usually included with Python, but listed for completeness)
+# tkinter - typically included with Python installations
