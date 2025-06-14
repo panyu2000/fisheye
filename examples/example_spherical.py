@@ -1,19 +1,22 @@
 import cv2
 import numpy as np
-from camera_params import parse_camera_params
-from spherical_projection import SphericalProjection
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.camera_params import parse_camera_params
+from src.spherical_projection import SphericalProjection
 
 def create_custom_spherical_view():
   """
   Demonstrate creating custom spherical projections with different parameters using SphericalProjection class.
   """
   # Parse camera parameters
-  camera_params = parse_camera_params("camera_intrinsics.yaml")
+  camera_params = parse_camera_params("config/camera_intrinsics.yaml")
   
   # Load the fisheye image once
-  fisheye_img = cv2.imread("fisheye_img.jpg")
+  fisheye_img = cv2.imread("data/fisheye_img.jpg")
   if fisheye_img is None:
-    raise ValueError("Could not load fisheye_img.jpg")
+    raise ValueError("Could not load data/fisheye_img.jpg")
   
   # Get image dimensions for validation
   img_height, img_width = fisheye_img.shape[:2]
@@ -32,8 +35,8 @@ def create_custom_spherical_view():
     yaw_offset=0, pitch_offset=0,
     fov_horizontal=220, fov_vertical=120
   )
-  cv2.imwrite("fisheye_img_wide_panorama.jpg", wide_panorama)
-  print("Saved: fisheye_img_wide_panorama.jpg")
+  cv2.imwrite("output/spherical/fisheye_img_wide_panorama.jpg", wide_panorama)
+  print("Saved: output/spherical/fisheye_img_wide_panorama.jpg")
   
   # Create a narrow field of view (like a normal camera)
   print("\n2. Creating narrow field of view (60° perspective)...")
@@ -43,8 +46,8 @@ def create_custom_spherical_view():
     yaw_offset=0, pitch_offset=0,
     fov_horizontal=60, fov_vertical=45
   )
-  cv2.imwrite("fisheye_img_narrow_view.jpg", narrow_view)
-  print("Saved: fisheye_img_narrow_view.jpg")
+  cv2.imwrite("output/spherical/fisheye_img_narrow_view.jpg", narrow_view)
+  print("Saved: output/spherical/fisheye_img_narrow_view.jpg")
   
   # Create a tilted view (looking up)
   print("\n3. Creating tilted upward view...")
@@ -54,8 +57,8 @@ def create_custom_spherical_view():
     yaw_offset=0, pitch_offset=30,
     fov_horizontal=120, fov_vertical=90
   )
-  cv2.imwrite("fisheye_img_upward_view.jpg", upward_view)
-  print("Saved: fisheye_img_upward_view.jpg")
+  cv2.imwrite("output/spherical/fisheye_img_upward_view.jpg", upward_view)
+  print("Saved: output/spherical/fisheye_img_upward_view.jpg")
   
   # Create a rotated side view
   print("\n4. Creating rotated view (looking backward)...")
@@ -65,8 +68,8 @@ def create_custom_spherical_view():
     yaw_offset=180, pitch_offset=0,
     fov_horizontal=120, fov_vertical=90
   )
-  cv2.imwrite("fisheye_img_backward_view.jpg", backward_view)
-  print("Saved: fisheye_img_backward_view.jpg")
+  cv2.imwrite("output/spherical/fisheye_img_backward_view.jpg", backward_view)
+  print("Saved: output/spherical/fisheye_img_backward_view.jpg")
   
   # Create a full 360° spherical panorama (allow behind camera)
   print("\n5. Creating full 360° spherical panorama...")
@@ -77,8 +80,8 @@ def create_custom_spherical_view():
     fov_horizontal=360, fov_vertical=180,
     allow_behind_camera=True
   )
-  cv2.imwrite("fisheye_img_full_spherical.jpg", full_spherical)
-  print("Saved: fisheye_img_full_spherical.jpg")
+  cv2.imwrite("output/spherical/fisheye_img_full_spherical.jpg", full_spherical)
+  print("Saved: output/spherical/fisheye_img_full_spherical.jpg")
   
   # Compare hemisphere vs full spherical projection
   print("\n6. Comparing hemisphere vs full spherical projection...")
@@ -89,8 +92,8 @@ def create_custom_spherical_view():
     fov_horizontal=180, fov_vertical=90,
     allow_behind_camera=False  # Traditional hemisphere only
   )
-  cv2.imwrite("fisheye_img_hemisphere.jpg", hemisphere_view)
-  print("Saved: fisheye_img_hemisphere.jpg (hemisphere only)")
+  cv2.imwrite("output/spherical/fisheye_img_hemisphere.jpg", hemisphere_view)
+  print("Saved: output/spherical/fisheye_img_hemisphere.jpg (hemisphere only)")
   
   full_180_view = projector.project(
     fisheye_img,
@@ -99,8 +102,8 @@ def create_custom_spherical_view():
     fov_horizontal=180, fov_vertical=90,
     allow_behind_camera=True  # Include behind camera content
   )
-  cv2.imwrite("fisheye_img_full_180.jpg", full_180_view)
-  print("Saved: fisheye_img_full_180.jpg (with behind camera content)")
+  cv2.imwrite("output/spherical/fisheye_img_full_180.jpg", full_180_view)
+  print("Saved: output/spherical/fisheye_img_full_180.jpg (with behind camera content)")
   
   # Demonstrate caching by repeating a projection with same parameters
   print("\n7. Testing cache functionality - repeating first projection...")

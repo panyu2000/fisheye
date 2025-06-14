@@ -1,17 +1,20 @@
 import cv2
 import numpy as np
-from camera_params import parse_camera_params
-from perspective_projection import PerspectiveProjection
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.camera_params import parse_camera_params
+from src.perspective_projection import PerspectiveProjection
 
 def create_custom_perspective_view():
   """
   Demonstrate creating custom perspective projections with different parameters using PerspectiveProjection class.
   """
   # Parse camera parameters
-  camera_params = parse_camera_params("camera_intrinsics.yaml")
+  camera_params = parse_camera_params("config/camera_intrinsics.yaml")
   
   # Load the fisheye image once
-  fisheye_img = cv2.imread("fisheye_img.jpg")
+  fisheye_img = cv2.imread("data/fisheye_img.jpg")
   if fisheye_img is None:
     raise ValueError("Could not load fisheye_img.jpg")
   
@@ -32,8 +35,8 @@ def create_custom_perspective_view():
     yaw_offset=30, pitch_offset=10, roll_offset=0,
     fov_horizontal=120
   )
-  cv2.imwrite("fisheye_img_wide_custom.jpg", wide_custom)
-  print("Saved: fisheye_img_wide_custom.jpg")
+  cv2.imwrite("output/perspective/fisheye_img_wide_custom.jpg", wide_custom)
+  print("Saved: output/perspective/fisheye_img_wide_custom.jpg")
   
   # Demonstrate caching by repeating projection with same parameters
   print("\n2. Testing cache functionality - repeating same projection...")
@@ -66,10 +69,10 @@ def demonstrate_fov_comparison():
   print("FIELD OF VIEW COMPARISON")
   print("="*60)
   
-  camera_params = parse_camera_params("camera_intrinsics.yaml")
-  fisheye_img = cv2.imread("fisheye_img.jpg")
+  camera_params = parse_camera_params("config/camera_intrinsics.yaml")
+  fisheye_img = cv2.imread("data/fisheye_img.jpg")
   if fisheye_img is None:
-    raise ValueError("Could not load fisheye_img.jpg")
+    raise ValueError("Could not load data/fisheye_img.jpg")
   
   img_height, img_width = fisheye_img.shape[:2]
   projector = PerspectiveProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
@@ -84,7 +87,7 @@ def demonstrate_fov_comparison():
       yaw_offset=0, pitch_offset=0, roll_offset=0,
       fov_horizontal=fov
     )
-    fov_filename = f"fisheye_img_fov_{fov:03d}.jpg"
+    fov_filename = f"output/perspective/fisheye_img_fov_{fov:03d}.jpg"
     cv2.imwrite(fov_filename, fov_view)
     print(f"  Saved: {fov_filename}")
   
@@ -102,10 +105,10 @@ def demonstrate_rotation_effects():
   print("ROTATION EFFECTS DEMONSTRATION")
   print("="*60)
   
-  camera_params = parse_camera_params("camera_intrinsics.yaml")
-  fisheye_img = cv2.imread("fisheye_img.jpg")
+  camera_params = parse_camera_params("config/camera_intrinsics.yaml")
+  fisheye_img = cv2.imread("data/fisheye_img.jpg")
   if fisheye_img is None:
-    raise ValueError("Could not load fisheye_img.jpg")
+    raise ValueError("Could not load data/fisheye_img.jpg")
   
   img_height, img_width = fisheye_img.shape[:2]
   projector = PerspectiveProjection(camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
@@ -119,7 +122,7 @@ def demonstrate_rotation_effects():
       yaw_offset=yaw, pitch_offset=0, roll_offset=0,
       fov_horizontal=70
     )
-    yaw_filename = f"fisheye_img_yaw_{yaw:03d}.jpg"
+    yaw_filename = f"output/perspective/fisheye_img_yaw_{yaw:03d}.jpg"
     cv2.imwrite(yaw_filename, yaw_view)
   print("  Saved 12 yaw rotation views")
   
@@ -132,7 +135,7 @@ def demonstrate_rotation_effects():
       yaw_offset=0, pitch_offset=pitch, roll_offset=0,
       fov_horizontal=70
     )
-    pitch_filename = f"fisheye_img_pitch_{pitch:+03d}.jpg"
+    pitch_filename = f"output/perspective/fisheye_img_pitch_{pitch:+03d}.jpg"
     cv2.imwrite(pitch_filename, pitch_view)
   print("  Saved 7 pitch rotation views")
   
@@ -145,7 +148,7 @@ def demonstrate_rotation_effects():
       yaw_offset=0, pitch_offset=0, roll_offset=roll,
       fov_horizontal=70
     )
-    roll_filename = f"fisheye_img_roll_{roll:+03d}.jpg"
+    roll_filename = f"output/perspective/fisheye_img_roll_{roll:+03d}.jpg"
     cv2.imwrite(roll_filename, roll_view)
   print("  Saved 7 roll rotation views")
   

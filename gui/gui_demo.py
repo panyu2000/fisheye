@@ -3,13 +3,16 @@ from tkinter import ttk, messagebox
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
-from camera_params import parse_camera_params
-from perspective_projection import PerspectiveProjection
-from spherical_projection import SphericalProjection
 import threading
 import queue
 from typing import Dict, Union, Optional
 import datetime
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.camera_params import parse_camera_params
+from src.perspective_projection import PerspectiveProjection
+from src.spherical_projection import SphericalProjection
 
 class FisheyeProjectionGUI:
   def __init__(self, root: tk.Tk) -> None:
@@ -19,10 +22,10 @@ class FisheyeProjectionGUI:
     
     # Load camera parameters and fisheye image
     try:
-      self.camera_params = parse_camera_params("camera_intrinsics.yaml")
-      self.fisheye_img = cv2.imread("fisheye_img.jpg")
+      self.camera_params = parse_camera_params("config/camera_intrinsics.yaml")
+      self.fisheye_img = cv2.imread("data/fisheye_img.jpg")
       if self.fisheye_img is None:
-        raise FileNotFoundError("Could not load fisheye_img.jpg")
+        raise FileNotFoundError("Could not load data/fisheye_img.jpg")
         
       # Get image dimensions for validation
       img_height, img_width = self.fisheye_img.shape[:2]
@@ -933,7 +936,7 @@ class FisheyeProjectionGUI:
   def save_perspective_image(self) -> None:
     """Save perspective projected image."""
     if hasattr(self, 'last_perspective_projected_img'):
-      filename = f"perspective_yaw{self.perspective_params['yaw_offset'].get():.0f}_pitch{self.perspective_params['pitch_offset'].get():.0f}_roll{self.perspective_params['roll_offset'].get():.0f}_fov{self.perspective_params['fov_horizontal'].get():.0f}.jpg"
+      filename = f"output/perspective/perspective_yaw{self.perspective_params['yaw_offset'].get():.0f}_pitch{self.perspective_params['pitch_offset'].get():.0f}_roll{self.perspective_params['roll_offset'].get():.0f}_fov{self.perspective_params['fov_horizontal'].get():.0f}.jpg"
       cv2.imwrite(filename, self.last_perspective_projected_img)
       self.log_perspective_message(f"Image saved successfully: {filename}")
       messagebox.showinfo("Success", f"Perspective image saved as {filename}")
@@ -944,7 +947,7 @@ class FisheyeProjectionGUI:
   def save_spherical_image(self) -> None:
     """Save spherical projected image."""
     if hasattr(self, 'last_spherical_projected_img'):
-      filename = f"spherical_yaw{self.spherical_params['yaw_offset'].get():.0f}_pitch{self.spherical_params['pitch_offset'].get():.0f}_fovh{self.spherical_params['fov_horizontal'].get():.0f}_fovv{self.spherical_params['fov_vertical'].get():.0f}.jpg"
+      filename = f"output/spherical/spherical_yaw{self.spherical_params['yaw_offset'].get():.0f}_pitch{self.spherical_params['pitch_offset'].get():.0f}_fovh{self.spherical_params['fov_horizontal'].get():.0f}_fovv{self.spherical_params['fov_vertical'].get():.0f}.jpg"
       cv2.imwrite(filename, self.last_spherical_projected_img)
       self.log_spherical_message(f"Image saved successfully: {filename}")
       messagebox.showinfo("Success", f"Spherical image saved as {filename}")

@@ -3,7 +3,7 @@ import numpy as np
 import os
 import time
 from typing import Tuple, Dict, Optional
-from camera_params import CameraParams
+from .camera_params import CameraParams
 
 def apply_perspective_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> np.ndarray:
   """
