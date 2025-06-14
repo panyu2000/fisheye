@@ -1,4 +1,5 @@
 import numpy as np
+import yaml
 
 
 class CameraParams:
@@ -127,79 +128,78 @@ class CameraParams:
 
 def parse_camera_params(filename):
   """
-  Parse camera parameters from file and return CameraParams object.
+  Parse camera parameters from YAML file and return CameraParams object.
   
-  Expected format: CAMERA_ID MODEL WIDTH HEIGHT fx fy cx cy k1 k2 k3 k4
+  Expected YAML format with OpenCV intrinsics structure.
   
   Parameters:
-  - filename: path to camera parameters file
+  - filename: path to YAML camera parameters file
   
   Returns:
   CameraParams object with loaded parameters.
   
   Raises:
-  ValueError if no valid camera parameters found or file format is invalid.
+  ValueError if file format is invalid or parameters are missing.
   FileNotFoundError if camera file doesn't exist.
   """
   try:
     with open(filename, 'r') as f:
-      lines = f.readlines()
+      data = yaml.safe_load(f)
   except FileNotFoundError:
     raise FileNotFoundError(f"Camera parameters file not found: {filename}")
+  except yaml.YAMLError as e:
+    raise ValueError(f"Invalid YAML format in file '{filename}': {e}")
   
-  # Skip comment lines and empty lines
-  for line in lines:
-    line = line.strip()
-    if line and not line.startswith('#'):
-      try:
-        params = line.split()
-        
-        # Ensure we have the correct number of parameters
-        if len(params) < 12:
-          raise ValueError(f"Insufficient parameters in line: {line}")
-        
-        camera_id = int(params[0])
-        model = params[1]
-        width = int(params[2])
-        height = int(params[3])
-        
-        # Extract intrinsic parameters
-        fx = float(params[4])
-        fy = float(params[5])
-        cx = float(params[6])
-        cy = float(params[7])
-        
-        # Extract distortion coefficients for fisheye model
-        k1 = float(params[8])
-        k2 = float(params[9])
-        k3 = float(params[10])
-        k4 = float(params[11])
-        
-        # Create CameraParams object
-        camera_params = CameraParams(
-          camera_id=camera_id,
-          model=model,
-          width=width,
-          height=height,
-          fx=fx,
-          fy=fy,
-          cx=cx,
-          cy=cy,
-          k1=k1,
-          k2=k2,
-          k3=k3,
-          k4=k4
-        )
-        
-        # Validate parameters
-        camera_params.validate()
-        
-        return camera_params
-        
-      except (ValueError, IndexError) as e:
-        raise ValueError(f"Invalid camera parameters format in line '{line}': {e}")
-  
-  raise ValueError("No valid camera parameters found in file")
+  try:
+    # Extract basic parameters
+    width = data['image_width']
+    height = data['image_height']
+    camera_name = data.get('camera_name', 'unknown')
+    model = data.get('distortion_model', 'fisheye').upper()
+    
+    # Extract camera matrix data
+    camera_matrix_data = data['camera_matrix']['data']
+    if len(camera_matrix_data) != 9:
+      raise ValueError("Camera matrix must have 9 elements")
+    
+    # Camera matrix is stored row-wise: [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+    fx = camera_matrix_data[0]
+    cx = camera_matrix_data[2]
+    fy = camera_matrix_data[4]
+    cy = camera_matrix_data[5]
+    
+    # Extract distortion coefficients
+    distortion_data = data['distortion_coefficients']['data']
+    if len(distortion_data) != 4:
+      raise ValueError("Fisheye distortion coefficients must have 4 elements")
+    
+    k1, k2, k3, k4 = distortion_data
+    
+    # Create CameraParams object
+    camera_params = CameraParams(
+      camera_id=camera_name,
+      model=model,
+      width=width,
+      height=height,
+      fx=fx,
+      fy=fy,
+      cx=cx,
+      cy=cy,
+      k1=k1,
+      k2=k2,
+      k3=k3,
+      k4=k4
+    )
+    
+    # Validate parameters
+    camera_params.validate()
+    
+    return camera_params
+    
+  except KeyError as e:
+    raise ValueError(f"Missing required parameter in YAML file: {e}")
+  except (TypeError, ValueError) as e:
+    raise ValueError(f"Invalid parameter format in YAML file: {e}")
 
 
 def parse_camera_params_dict(filename):
@@ -224,8 +224,8 @@ if __name__ == "__main__":
   try:
     print("Testing camera parameter parsing...")
     
-    # Parse camera parameters
-    camera_params = parse_camera_params("cameras.txt")
+    # Parse camera parameters from YAML file
+    camera_params = parse_camera_params("camera_intrinsics.yaml")
     print(f"Loaded camera parameters: {camera_params}")
     
     # Test dictionary conversion

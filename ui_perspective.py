@@ -17,7 +17,7 @@ class FisheyeUI:
     
     # Load camera parameters and fisheye image
     try:
-      self.camera_params = parse_camera_params("cameras.txt")
+      self.camera_params = parse_camera_params("camera_intrinsics.yaml")
       self.fisheye_img = cv2.imread("fisheye_img.jpg")
       if self.fisheye_img is None:
         raise FileNotFoundError("Could not load fisheye_img.jpg")

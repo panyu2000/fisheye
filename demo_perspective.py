@@ -8,7 +8,7 @@ def create_custom_perspective_view():
   Demonstrate creating custom perspective projections with different parameters using PerspectiveProjection class.
   """
   # Parse camera parameters
-  camera_params = parse_camera_params("cameras.txt")
+  camera_params = parse_camera_params("camera_intrinsics.yaml")
   
   # Load the fisheye image once
   fisheye_img = cv2.imread("fisheye_img.jpg")
@@ -66,7 +66,7 @@ def demonstrate_fov_comparison():
   print("FIELD OF VIEW COMPARISON")
   print("="*60)
   
-  camera_params = parse_camera_params("cameras.txt")
+  camera_params = parse_camera_params("camera_intrinsics.yaml")
   fisheye_img = cv2.imread("fisheye_img.jpg")
   if fisheye_img is None:
     raise ValueError("Could not load fisheye_img.jpg")
@@ -102,7 +102,7 @@ def demonstrate_rotation_effects():
   print("ROTATION EFFECTS DEMONSTRATION")
   print("="*60)
   
-  camera_params = parse_camera_params("cameras.txt")
+  camera_params = parse_camera_params("camera_intrinsics.yaml")
   fisheye_img = cv2.imread("fisheye_img.jpg")
   if fisheye_img is None:
     raise ValueError("Could not load fisheye_img.jpg")

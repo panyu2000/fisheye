@@ -8,7 +8,7 @@ def create_custom_spherical_view():
   Demonstrate creating custom spherical projections with different parameters using SphericalProjection class.
   """
   # Parse camera parameters
-  camera_params = parse_camera_params("cameras.txt")
+  camera_params = parse_camera_params("camera_intrinsics.yaml")
   
   # Load the fisheye image once
   fisheye_img = cv2.imread("fisheye_img.jpg")

@@ -1,0 +1,16 @@
+image_width: 3264
+image_height: 3264
+camera_name: "fisheye_camera"
+camera_matrix:
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 991.0, 0.0, 1612.0,
+           0.0, 991.0, 1617.0,
+           0.0, 0.0, 1.0 ]
+distortion_model: "fisheye"
+distortion_coefficients:
+   rows: 1
+   cols: 4
+   dt: d
+   data: [ 0.024943212941115993, 0.0049984956352712093, -0.017541641442409061, 0.0045520708951808514 ]
