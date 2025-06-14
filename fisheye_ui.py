@@ -26,7 +26,8 @@ class FisheyeUI:
       img_height, img_width = self.fisheye_img.shape[:2]
       
       # Create PerspectiveProjection instance with caching capabilities
-      self.projector = PerspectiveProjection(self.camera_params, input_image_size=(img_width, img_height))
+      # Use vectorized=True by default for fast performance
+      self.projector = PerspectiveProjection(self.camera_params, input_image_size=(img_width, img_height), use_vectorized=True)
       
     except Exception as e:
       messagebox.showerror("Error", f"Failed to load files: {e}")
@@ -317,8 +318,8 @@ class FisheyeUI:
     if hasattr(self, 'pending_update_id') and self.pending_update_id:
       self.root.after_cancel(self.pending_update_id)
     
-    # Schedule new update after 500ms delay from this input
-    self.pending_update_id = self.root.after(500, self.delayed_update)
+    # Schedule new update after 200ms delay from this input
+    self.pending_update_id = self.root.after(200, self.delayed_update)
   
   def delayed_update(self) -> None:
     self.pending_update_id = None
