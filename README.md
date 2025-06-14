@@ -18,20 +18,21 @@ This project provides tools for converting fisheye camera images into different 
 - Example programs to use the image projection functionalities
 - Example interactive GUI programs to show case projection results with virtual camera controls
 
-### Example GUI Programs
+### GUI Demo
 
-## Requirements Installation
+The project includes an interactive GUI application that provides real-time visualization and control over fisheye image projections,
+given virtual camera parameter set from the UI.
 
-Install all dependencies using pip:
+![Perspective Projection GUI](docs/images/gui_perspective.jpg)
+*Perspective projection interface with real-time parameter controls*
+
+![Spherical Projection GUI](docs/images/gui_spherical.jpg)
+*Spherical projection interface with panoramic view generation*
+
+Launch the GUI demo:
 
 ```bash
-pip install -r requirements.txt
-```
-
-Or install packages individually:
-
-```bash
-pip install opencv-python numpy Pillow PyYAML
+python gui/gui_demo.py
 ```
 
 ## Acknowledgments
