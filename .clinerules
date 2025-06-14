@@ -1,4 +1,4 @@
-# Cline Rules for Fisheye Image Processing Project
+# Cline Rules for Fisheye Image Projection Project
 
 ## Project Overview
 This is a Python computer vision project focused on fisheye image rectification and projection.
@@ -67,10 +67,9 @@ This is a Python computer vision project focused on fisheye image rectification 
 - Keep main algorithms in separate modules
 - Separate UI code from core algorithms
 - Use demo scripts for showcasing functionality
-- Keep configuration files (cameras.txt) in project root
 
 ### Naming Conventions
-- Use descriptive filenames: fisheye_rectify.py, spherical_projection.py
+- Use descriptive filenames
 - Include output type in generated filenames: *_rectified.jpg, *_perspective.jpg
 - Use systematic naming for batch outputs with parameters
 
@@ -85,4 +84,3 @@ This is a Python computer vision project focused on fisheye image rectification 
 7. Provide meaningful parameter names and ranges
 8. Test with various input conditions and edge cases
 9. Follow OpenCV conventions for camera models
-10. Maintain backward compatibility when updating algorithms
