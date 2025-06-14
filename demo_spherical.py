@@ -68,8 +68,42 @@ def create_custom_spherical_view():
   cv2.imwrite("fisheye_img_backward_view.jpg", backward_view)
   print("Saved: fisheye_img_backward_view.jpg")
   
+  # Create a full 360° spherical panorama (allow behind camera)
+  print("\n5. Creating full 360° spherical panorama...")
+  full_spherical = projector.project(
+    fisheye_img,
+    output_width=2048, output_height=1024,
+    yaw_offset=0, pitch_offset=0,
+    fov_horizontal=360, fov_vertical=180,
+    allow_behind_camera=True
+  )
+  cv2.imwrite("fisheye_img_full_spherical.jpg", full_spherical)
+  print("Saved: fisheye_img_full_spherical.jpg")
+  
+  # Compare hemisphere vs full spherical projection
+  print("\n6. Comparing hemisphere vs full spherical projection...")
+  hemisphere_view = projector.project(
+    fisheye_img,
+    output_width=1024, output_height=512,
+    yaw_offset=0, pitch_offset=0,
+    fov_horizontal=180, fov_vertical=90,
+    allow_behind_camera=False  # Traditional hemisphere only
+  )
+  cv2.imwrite("fisheye_img_hemisphere.jpg", hemisphere_view)
+  print("Saved: fisheye_img_hemisphere.jpg (hemisphere only)")
+  
+  full_180_view = projector.project(
+    fisheye_img,
+    output_width=1024, output_height=512,
+    yaw_offset=0, pitch_offset=0,
+    fov_horizontal=180, fov_vertical=90,
+    allow_behind_camera=True  # Include behind camera content
+  )
+  cv2.imwrite("fisheye_img_full_180.jpg", full_180_view)
+  print("Saved: fisheye_img_full_180.jpg (with behind camera content)")
+  
   # Demonstrate caching by repeating a projection with same parameters
-  print("\n5. Testing cache functionality - repeating first projection...")
+  print("\n7. Testing cache functionality - repeating first projection...")
   wide_panorama_cached = projector.project(
     fisheye_img,
     output_width=1200, output_height=500,
@@ -90,13 +124,16 @@ def create_custom_spherical_view():
   print(f"  Memory usage: {cache_info['memory_usage_mb']:.2f} MB")
   
   print("\nCustom spherical projections completed!")
-  print("Total files created: 4")
+  print("Total files created: 7")
   
   return [
     "fisheye_img_wide_panorama.jpg",
     "fisheye_img_narrow_view.jpg", 
     "fisheye_img_upward_view.jpg",
-    "fisheye_img_backward_view.jpg"
+    "fisheye_img_backward_view.jpg",
+    "fisheye_img_full_spherical.jpg",
+    "fisheye_img_hemisphere.jpg",
+    "fisheye_img_full_180.jpg"
   ]
 
 if __name__ == "__main__":
@@ -110,5 +147,12 @@ if __name__ == "__main__":
   print("• Look in any direction (yaw/pitch offsets)")
   print("• Generate different perspective views from the same fisheye image")
   print("• Create virtual camera views with custom parameters")
+  print("• Control hemisphere vs full spherical coverage (allow_behind_camera)")
+  print("• Generate traditional fisheye projections or full 360° spherical views")
+  print("\nKey demonstrations:")
+  print("• Wide panoramic views for security/surveillance applications")
+  print("• Narrow field views for traditional camera simulation")
+  print("• Full 360° spherical panoramas for VR/immersive content")
+  print("• Hemisphere vs full spherical comparison showing coverage differences")
   print("\nAll projection methods preserve the geometric relationships")
   print("from the original fisheye image while providing different viewing perspectives.")

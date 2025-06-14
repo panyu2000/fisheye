@@ -74,17 +74,21 @@ class SphericalProjection:
   
   def _generate_cache_key(self, output_width: int, output_height: int, 
                          yaw_offset: float, pitch_offset: float, 
-                         fov_horizontal: float, fov_vertical: float) -> str:
+                         fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> str:
     """Generate a unique cache key for projection parameters."""
-    return f"{output_width}x{output_height}_yaw{yaw_offset:.3f}_pitch{pitch_offset:.3f}_fovh{fov_horizontal:.1f}_fovv{fov_vertical:.1f}"
+    behind_key = "behind_ok" if allow_behind_camera else "behind_skip"
+    return f"{output_width}x{output_height}_yaw{yaw_offset:.3f}_pitch{pitch_offset:.3f}_fovh{fov_horizontal:.1f}_fovv{fov_vertical:.1f}_{behind_key}"
   
   def _generate_projection_maps(self, output_width: int, output_height: int, 
                                yaw_offset: float, pitch_offset: float, 
-                               fov_horizontal: float, fov_vertical: float) -> Tuple[np.ndarray, np.ndarray]:
+                               fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate projection maps using the camera's parameters.
     
     Dispatches to either vectorized (fast) or reference (slow but educational) implementation.
+    
+    Parameters:
+    - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
     
     Returns:
     - map_x, map_y: projection mapping arrays
@@ -92,20 +96,23 @@ class SphericalProjection:
     if self.use_vectorized:
       print("Using vectorized (fast) map generation")
       return self._generate_projection_maps_vectorized(output_width, output_height, yaw_offset, 
-                                                       pitch_offset, fov_horizontal, fov_vertical)
+                                                       pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     else:
       print("Using reference (slow but educational) map generation")
       return self._generate_projection_maps_reference(output_width, output_height, yaw_offset, 
-                                                      pitch_offset, fov_horizontal, fov_vertical)
+                                                      pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
   
   def _generate_projection_maps_reference(self, output_width: int, output_height: int, 
                                          yaw_offset: float, pitch_offset: float, 
-                                         fov_horizontal: float, fov_vertical: float) -> Tuple[np.ndarray, np.ndarray]:
+                                         fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> Tuple[np.ndarray, np.ndarray]:
     """
     Reference implementation: Generate projection maps using nested loops.
     
     This is the original, slow but easy-to-understand implementation.
     Kept for educational purposes and debugging.
+    
+    Parameters:
+    - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
     """
     # Time the map generation process
     start_time = time.time()
@@ -125,6 +132,7 @@ class SphericalProjection:
     print(f"Generating spherical projection maps for camera: {output_width}x{output_height}")
     print(f"FOV: {fov_horizontal}° x {fov_vertical}°")
     print(f"Offsets: yaw={yaw_offset}°, pitch={pitch_offset}°")
+    print(f"Allow behind camera: {allow_behind_camera}")
     
     # REFERENCE IMPLEMENTATION: Nested loops (slow but educational)
     for v in range(output_height):
@@ -141,10 +149,10 @@ class SphericalProjection:
         # Convert 3D vector to fisheye projection angles
         theta = np.arccos(np.clip(z_cam, -1, 1))
 
-        # # Skip if outside fisheye's hemisphere coverage
-        # if theta > np.pi/2:
-        #   continue
-          
+        if not allow_behind_camera and theta > np.pi/2:
+          # Skip if outside fisheye's hemisphere coverage
+          continue
+
         phi = np.arctan2(-y_cam, x_cam)
         
         # Apply fisheye distortion model
@@ -165,12 +173,15 @@ class SphericalProjection:
   
   def _generate_projection_maps_vectorized(self, output_width: int, output_height: int, 
                                           yaw_offset: float, pitch_offset: float, 
-                                          fov_horizontal: float, fov_vertical: float) -> Tuple[np.ndarray, np.ndarray]:
+                                          fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> Tuple[np.ndarray, np.ndarray]:
     """
     Vectorized implementation: Generate projection maps using NumPy array operations.
     
     This processes all pixels simultaneously for 10-50x speedup over the reference implementation.
     Uses the same mathematical logic but with vectorized operations.
+    
+    Parameters:
+    - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
     """
     # Time the map generation process
     start_time = time.time()
@@ -186,6 +197,7 @@ class SphericalProjection:
     print(f"Generating spherical projection maps for camera: {output_width}x{output_height}")
     print(f"FOV: {fov_horizontal}° x {fov_vertical}°")
     print(f"Offsets: yaw={yaw_offset}°, pitch={pitch_offset}°")
+    print(f"Allow behind camera: {allow_behind_camera}")
     
     # VECTORIZED IMPLEMENTATION: Process all pixels simultaneously
     # Create coordinate grids for all pixels
@@ -204,17 +216,34 @@ class SphericalProjection:
     theta = np.arccos(np.clip(z_cam, -1, 1))
     phi = np.arctan2(-y_cam, x_cam)
     
-    # Apply fisheye distortion model (vectorized)
-    theta_d = theta * (1 + self.k1*theta**2 + self.k2*theta**4 + 
-                      self.k3*theta**6 + self.k4*theta**8)
+    # Create output arrays initialized to invalid coordinates
+    map_x = np.full((output_height, output_width), -1.0, dtype=np.float32)
+    map_y = np.full((output_height, output_width), -1.0, dtype=np.float32)
     
-    # Convert to fisheye image coordinates (vectorized)
-    x_fish = self.fx * theta_d * np.cos(phi) + self.cx
-    y_fish = self.fy * theta_d * np.sin(phi) + self.cy
+    # Create mask for valid pixels
+    if allow_behind_camera:
+      # All pixels are valid when behind camera is allowed
+      valid_mask = np.ones((output_height, output_width), dtype=bool)
+    else:
+      # Only pixels within hemisphere (theta <= pi/2)
+      valid_mask = theta <= np.pi/2
     
-    # Store coordinates in maps
-    map_x = x_fish.astype(np.float32)
-    map_y = y_fish.astype(np.float32)
+    # Process only valid pixels
+    if np.any(valid_mask):
+      theta_valid = theta[valid_mask]
+      phi_valid = phi[valid_mask]
+      
+      # Apply fisheye distortion model (vectorized)
+      theta_d = theta_valid * (1 + self.k1*theta_valid**2 + self.k2*theta_valid**4 + 
+                              self.k3*theta_valid**6 + self.k4*theta_valid**8)
+      
+      # Convert to fisheye image coordinates (vectorized)
+      x_fish = self.fx * theta_d * np.cos(phi_valid) + self.cx
+      y_fish = self.fy * theta_d * np.sin(phi_valid) + self.cy
+      
+      # Store coordinates in maps
+      map_x[valid_mask] = x_fish
+      map_y[valid_mask] = y_fish
     
     map_generation_time = time.time() - start_time
     print(f"Vectorized map generation processing time: {map_generation_time:.4f} seconds")
@@ -223,7 +252,7 @@ class SphericalProjection:
   
   def get_projection_maps(self, output_width: int = 2048, output_height: int = 1024,
                          yaw_offset: float = 0, pitch_offset: float = 0, 
-                         fov_horizontal: float = 360, fov_vertical: float = 180) -> Tuple[np.ndarray, np.ndarray]:
+                         fov_horizontal: float = 360, fov_vertical: float = 180, allow_behind_camera: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get projection maps with caching.
     
@@ -233,18 +262,19 @@ class SphericalProjection:
     - output_width, output_height: dimensions of output panorama
     - yaw_offset, pitch_offset: rotation offsets in degrees
     - fov_horizontal, fov_vertical: field of view coverage in degrees
+    - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
     
     Returns:
     - map_x, map_y: projection mapping arrays
     """
-    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
     if cache_key in self._map_cache:
       print(f"Using cached projection maps: {cache_key}")
       return self._map_cache[cache_key]
     
     # Generate new maps
-    map_x, map_y = self._generate_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    map_x, map_y = self._generate_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
     # Cache the maps
     self._map_cache[cache_key] = (map_x, map_y)
@@ -254,7 +284,7 @@ class SphericalProjection:
   
   def project(self, input_img: np.ndarray, output_width: int = 2048, output_height: int = 1024, 
              yaw_offset: float = 0, pitch_offset: float = 0, 
-             fov_horizontal: float = 360, fov_vertical: float = 180) -> np.ndarray:
+             fov_horizontal: float = 360, fov_vertical: float = 180, allow_behind_camera: bool = False) -> np.ndarray:
     """
     Apply spherical projection to input fisheye image.
     
@@ -263,6 +293,7 @@ class SphericalProjection:
     - output_width, output_height: dimensions of output panorama
     - yaw_offset, pitch_offset: rotation offsets in degrees
     - fov_horizontal, fov_vertical: field of view coverage in degrees
+    - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
     
     Returns:
     - spherical_img: projected spherical panorama image
@@ -275,7 +306,7 @@ class SphericalProjection:
         raise ValueError(f"Input image size {img_width}x{img_height} does not match expected size {expected_width}x{expected_height}")
     
     # Get projection maps (cached or generate new)
-    map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
     # Apply projection maps
     return apply_spherical_projection_maps(input_img, map_x, map_y)
@@ -304,9 +335,9 @@ class SphericalProjection:
   
   def remove_cached_projection(self, output_width: int, output_height: int, 
                               yaw_offset: float, pitch_offset: float, 
-                              fov_horizontal: float, fov_vertical: float):
+                              fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool = False):
     """Remove a specific projection from cache."""
-    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical)
+    cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     if cache_key in self._map_cache:
       del self._map_cache[cache_key]
       print(f"Removed cached projection: {cache_key}")
