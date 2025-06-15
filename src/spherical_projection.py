@@ -32,6 +32,7 @@ from typing import Tuple, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 from .camera_params import CameraParams
+from .cache_manager import CacheManager
 
 def apply_spherical_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> np.ndarray:
   """
@@ -72,19 +73,20 @@ class SphericalProjection:
   when processing multiple images with the same projection parameters.
   """
   
-  def __init__(self, camera_params: CameraParams, use_vectorized: bool = True):
+  def __init__(self, camera_params: CameraParams, use_vectorized: bool = True, cache_manager: Optional[CacheManager] = None):
     """
     Initialize SphericalProjection with camera parameters.
     
     Parameters:
     - camera_params: CameraParams object
     - use_vectorized: if True, use fast vectorized map generation; if False, use reference implementation
+    - cache_manager: Optional shared cache manager. If None, creates a new one.
     """
     self.camera_params = camera_params
     self.use_vectorized = use_vectorized
     
-    # Cache for projection maps - key is projection parameters tuple
-    self._map_cache: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    # Use shared cache manager or create a new one
+    self.cache_manager = cache_manager if cache_manager is not None else CacheManager()
     
     # Extract camera parameters for easy access
     self.fx = camera_params.fx
@@ -99,9 +101,9 @@ class SphericalProjection:
   def _generate_cache_key(self, output_width: int, output_height: int, 
                          yaw_offset: float, pitch_offset: float, 
                          fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> str:
-    """Generate a unique cache key for projection parameters."""
+    """Generate a unique cache key for projection parameters with spherical prefix."""
     behind_key = "behind_ok" if allow_behind_camera else "behind_skip"
-    return f"{output_width}x{output_height}_yaw{yaw_offset:.3f}_pitch{pitch_offset:.3f}_fovh{fov_horizontal:.1f}_fovv{fov_vertical:.1f}_{behind_key}"
+    return f"spherical_{output_width}x{output_height}_yaw{yaw_offset:.3f}_pitch{pitch_offset:.3f}_fovh{fov_horizontal:.1f}_fovv{fov_vertical:.1f}_{behind_key}"
   
   def _generate_projection_maps(self, output_width: int, output_height: int, 
                                yaw_offset: float, pitch_offset: float, 
@@ -377,15 +379,17 @@ class SphericalProjection:
     """
     cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
-    if cache_key in self._map_cache:
+    # Try to get from cache
+    cached_maps = self.cache_manager.get(cache_key)
+    if cached_maps is not None:
       print(f"Using cached projection maps: {cache_key}")
-      return self._map_cache[cache_key]
+      return cached_maps
     
     # Generate new maps
     map_x, map_y = self._generate_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
     # Cache the maps
-    self._map_cache[cache_key] = (map_x, map_y)
+    self.cache_manager.put(cache_key, map_x, map_y)
     print(f"Cached projection maps: {cache_key}")
     
     return map_x, map_y
@@ -416,15 +420,14 @@ class SphericalProjection:
     map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
     # Print cache size after get_projection_maps is called
-    cache_info = self.get_cache_info()
-    print(f"Cache status: {cache_info['cached_projections']} projections, {cache_info['memory_usage_mb']:.1f} MB")
+    self.cache_manager.print_status()
     
     # Apply projection maps
     return apply_spherical_projection_maps(input_img, map_x, map_y)
   
   def clear_cache(self):
     """Clear all cached projection maps."""
-    self._map_cache.clear()
+    self.cache_manager.clear()
     print("Projection map cache cleared")
   
   def get_cache_info(self) -> Dict[str, int]:
@@ -434,23 +437,14 @@ class SphericalProjection:
     Returns:
     - Dictionary with cache statistics
     """
-    total_memory = 0
-    for map_x, map_y in self._map_cache.values():
-      total_memory += map_x.nbytes + map_y.nbytes
-    
-    return {
-      'cached_projections': len(self._map_cache),
-      'memory_usage_bytes': total_memory,
-      'memory_usage_mb': total_memory / (1024 * 1024)
-    }
+    return self.cache_manager.get_info()
   
   def remove_cached_projection(self, output_width: int, output_height: int, 
                               yaw_offset: float, pitch_offset: float, 
                               fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool = False):
     """Remove a specific projection from cache."""
     cache_key = self._generate_cache_key(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
-    if cache_key in self._map_cache:
-      del self._map_cache[cache_key]
+    if self.cache_manager.remove(cache_key):
       print(f"Removed cached projection: {cache_key}")
     else:
       print(f"Projection not in cache: {cache_key}")
