@@ -480,8 +480,8 @@ class FisheyeProjectionGUI:
 Down Arrow  : Pitch -10 degrees
 Left Arrow  : Yaw -10 degrees
 Right Arrow : Yaw +10 degrees
-Plus Key    : FOV +10 degrees
-Minus Key   : FOV -10 degrees"""
+Plus Key    : FOV -10 degrees (zoom in)
+Minus Key   : FOV +10 degrees (zoom out)"""
     
     shortcuts_text.configure(state=tk.NORMAL)
     shortcuts_text.insert('1.0', shortcuts_content)
@@ -691,8 +691,8 @@ Minus Key   : FOV -10 degrees"""
 Down Arrow  : Pitch -10 degrees
 Left Arrow  : Yaw -10 degrees
 Right Arrow : Yaw +10 degrees
-Plus Key    : FOV +10 degrees
-Minus Key   : FOV -10 degrees"""
+Plus Key    : FOV -10 degrees (zoom in)
+Minus Key   : FOV +10 degrees (zoom out)"""
     
     shortcuts_text.configure(state=tk.NORMAL)
     shortcuts_text.insert('1.0', shortcuts_content)
@@ -1401,25 +1401,25 @@ Minus Key   : FOV -10 degrees"""
       update_func()
       
     elif event.keysym == 'plus' or event.keysym == 'equal':
-      # Plus key increases horizontal FOV by 10 degrees
-      current_fov = params['fov_horizontal'].get()
-      if tab_text == "Perspective Projection":
-        new_fov = max(10, min(175, current_fov + 10))  # Perspective FOV range
-      else:  # Spherical projection
-        new_fov = max(60, min(360, current_fov + 10))  # Spherical FOV range
-      params['fov_horizontal'].set(new_fov)
-      log_func(f"Keyboard: Horizontal FOV increased to {new_fov:.1f}° (+ key)")
-      update_func()
-      
-    elif event.keysym == 'minus':
-      # Minus key decreases horizontal FOV by 10 degrees
+      # Plus key reduces horizontal FOV by 10 degrees (zoom in)
       current_fov = params['fov_horizontal'].get()
       if tab_text == "Perspective Projection":
         new_fov = max(10, min(175, current_fov - 10))  # Perspective FOV range
       else:  # Spherical projection
         new_fov = max(60, min(360, current_fov - 10))  # Spherical FOV range
       params['fov_horizontal'].set(new_fov)
-      log_func(f"Keyboard: Horizontal FOV decreased to {new_fov:.1f}° (- key)")
+      log_func(f"Keyboard: Horizontal FOV reduced to {new_fov:.1f}° (+ key)")
+      update_func()
+      
+    elif event.keysym == 'minus':
+      # Minus key increases horizontal FOV by 10 degrees (zoom out)
+      current_fov = params['fov_horizontal'].get()
+      if tab_text == "Perspective Projection":
+        new_fov = max(10, min(175, current_fov + 10))  # Perspective FOV range
+      else:  # Spherical projection
+        new_fov = max(60, min(360, current_fov + 10))  # Spherical FOV range
+      params['fov_horizontal'].set(new_fov)
+      log_func(f"Keyboard: Horizontal FOV increased to {new_fov:.1f}° (- key)")
       update_func()
 
 def main() -> None:
