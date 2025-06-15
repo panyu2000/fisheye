@@ -29,6 +29,8 @@ import numpy as np
 import os
 import time
 from typing import Tuple, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
 from .camera_params import CameraParams
 
 def apply_spherical_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> np.ndarray:
@@ -193,14 +195,101 @@ class SphericalProjection:
     
     return map_x, map_y
   
+  def _process_row_chunk(self, row_start: int, row_end: int, output_width: int, output_height: int,
+                        yaw_offset_rad: float, pitch_offset_rad: float, 
+                        fov_h_rad: float, fov_v_rad: float, allow_behind_camera: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Process a chunk of rows in parallel for projection map generation.
+    
+    Parameters:
+    - row_start, row_end: range of rows to process
+    - output_width, output_height: dimensions of output image
+    - yaw_offset_rad, pitch_offset_rad: rotation offsets in radians
+    - fov_h_rad, fov_v_rad: field of view in radians
+    - allow_behind_camera: if True, include rays pointing backward
+    
+    Returns:
+    - Tuple of (map_x_chunk, map_y_chunk, valid_mask_chunk)
+    """
+    chunk_height = row_end - row_start
+    
+    # Create coordinate grids for this chunk
+    u_coords, v_coords = np.meshgrid(
+      np.arange(output_width, dtype=np.float32), 
+      np.arange(row_start, row_end, dtype=np.float32)
+    )
+    
+    # Convert pixels to viewing direction angles (optimized calculations)
+    u_norm = u_coords / output_width - 0.5
+    v_norm = 0.5 - v_coords / output_height
+    
+    longitude = u_norm * fov_h_rad + yaw_offset_rad
+    latitude = v_norm * fov_v_rad + pitch_offset_rad
+    
+    # Pre-compute trigonometric values for better cache utilization
+    cos_lat = np.cos(latitude)
+    sin_lat = np.sin(latitude)
+    cos_lon = np.cos(longitude)
+    sin_lon = np.sin(longitude)
+    
+    # Convert spherical angles to 3D unit vectors (vectorized)
+    x_cam = cos_lat * sin_lon
+    y_cam = sin_lat
+    z_cam = cos_lat * cos_lon
+    
+    # Convert 3D vectors to fisheye projection angles (vectorized)
+    # Use more efficient clipping and avoid redundant calculations
+    z_cam_clipped = np.clip(z_cam, -0.9999999, 0.9999999)  # Avoid numerical issues
+    theta = np.arccos(z_cam_clipped)
+    phi = np.arctan2(-y_cam, x_cam)
+    
+    # Create mask for valid pixels
+    if allow_behind_camera:
+      valid_mask = np.ones((chunk_height, output_width), dtype=bool)
+    else:
+      valid_mask = theta <= np.pi/2
+    
+    # Initialize output arrays for this chunk
+    map_x_chunk = np.full((chunk_height, output_width), -1.0, dtype=np.float32)
+    map_y_chunk = np.full((chunk_height, output_width), -1.0, dtype=np.float32)
+    
+    # Process only valid pixels if any exist
+    if np.any(valid_mask):
+      theta_valid = theta[valid_mask]
+      phi_valid = phi[valid_mask]
+      
+      # Optimized fisheye distortion calculation using Horner's method
+      theta2 = theta_valid * theta_valid
+      theta4 = theta2 * theta2
+      theta6 = theta4 * theta2
+      theta8 = theta4 * theta4
+      
+      # Apply fisheye distortion model (optimized polynomial evaluation)
+      distortion_factor = 1 + theta2 * (self.k1 + theta2 * (self.k2 + theta2 * (self.k3 + theta2 * self.k4)))
+      theta_d = theta_valid * distortion_factor
+      
+      # Pre-compute trigonometric values for phi
+      cos_phi = np.cos(phi_valid)
+      sin_phi = np.sin(phi_valid)
+      
+      # Convert to fisheye image coordinates (vectorized)
+      x_fish = self.fx * theta_d * cos_phi + self.cx
+      y_fish = self.fy * theta_d * sin_phi + self.cy
+      
+      # Store coordinates in chunk maps
+      map_x_chunk[valid_mask] = x_fish
+      map_y_chunk[valid_mask] = y_fish
+    
+    return map_x_chunk, map_y_chunk, valid_mask
+
   def _generate_projection_maps_vectorized(self, output_width: int, output_height: int, 
                                           yaw_offset: float, pitch_offset: float, 
                                           fov_horizontal: float, fov_vertical: float, allow_behind_camera: bool) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Vectorized implementation: Generate projection maps using NumPy array operations.
+    Parallel vectorized implementation: Generate projection maps using NumPy array operations with multi-threading.
     
-    This processes all pixels simultaneously for 10-50x speedup over the reference implementation.
-    Uses the same mathematical logic but with vectorized operations.
+    This processes pixels in parallel chunks for optimal CPU utilization and cache efficiency.
+    Provides significant speedup over the original vectorized implementation, especially for large images.
     
     Parameters:
     - allow_behind_camera: if True, include rays pointing backward (z < 0) in the projection maps
@@ -216,59 +305,56 @@ class SphericalProjection:
     fov_h_rad = np.radians(fov_horizontal)
     fov_v_rad = np.radians(fov_vertical)
     
+    # Determine optimal number of threads and chunk size
+    num_cores = min(multiprocessing.cpu_count(), 8)  # Cap at 8 threads to avoid overhead
+    min_chunk_size = 32  # Minimum rows per chunk for cache efficiency
+    chunk_size = max(min_chunk_size, output_height // (num_cores * 2))  # 2x cores for better load balancing
+    
     print(f"Generating spherical projection maps for camera: {output_width}x{output_height}")
     print(f"FOV: {fov_horizontal}° x {fov_vertical}°")
     print(f"Offsets: yaw={yaw_offset}°, pitch={pitch_offset}°")
     print(f"Allow behind camera: {allow_behind_camera}")
+    print(f"Using {num_cores} threads with chunk size {chunk_size} rows")
     
-    # VECTORIZED IMPLEMENTATION: Process all pixels simultaneously
-    # Create coordinate grids for all pixels
-    u_coords, v_coords = np.meshgrid(np.arange(output_width), np.arange(output_height))
-    
-    # Convert ALL pixels to viewing direction angles simultaneously
-    longitude = (u_coords / output_width - 0.5) * fov_h_rad + yaw_offset_rad
-    latitude = (0.5 - v_coords / output_height) * fov_v_rad + pitch_offset_rad
-    
-    # Convert spherical angles to 3D unit vectors (vectorized)
-    x_cam = np.cos(latitude) * np.sin(longitude)
-    y_cam = np.sin(latitude)
-    z_cam = np.cos(latitude) * np.cos(longitude)
-    
-    # Convert 3D vectors to fisheye projection angles (vectorized)
-    theta = np.arccos(np.clip(z_cam, -1, 1))
-    phi = np.arctan2(-y_cam, x_cam)
-    
-    # Create output arrays initialized to invalid coordinates
+    # Create output arrays
     map_x = np.full((output_height, output_width), -1.0, dtype=np.float32)
     map_y = np.full((output_height, output_width), -1.0, dtype=np.float32)
     
-    # Create mask for valid pixels
-    if allow_behind_camera:
-      # All pixels are valid when behind camera is allowed
-      valid_mask = np.ones((output_height, output_width), dtype=bool)
+    # For small images, use single-threaded processing to avoid overhead
+    if output_height < 128 or output_width < 128:
+      print("Using single-threaded processing for small image")
+      map_x_chunk, map_y_chunk, _ = self._process_row_chunk(
+        0, output_height, output_width, output_height,
+        yaw_offset_rad, pitch_offset_rad, fov_h_rad, fov_v_rad, allow_behind_camera
+      )
+      map_x[:] = map_x_chunk
+      map_y[:] = map_y_chunk
     else:
-      # Only pixels within hemisphere (theta <= pi/2)
-      valid_mask = theta <= np.pi/2
-    
-    # Process only valid pixels
-    if np.any(valid_mask):
-      theta_valid = theta[valid_mask]
-      phi_valid = phi[valid_mask]
-      
-      # Apply fisheye distortion model (vectorized)
-      theta_d = theta_valid * (1 + self.k1*theta_valid**2 + self.k2*theta_valid**4 + 
-                              self.k3*theta_valid**6 + self.k4*theta_valid**8)
-      
-      # Convert to fisheye image coordinates (vectorized)
-      x_fish = self.fx * theta_d * np.cos(phi_valid) + self.cx
-      y_fish = self.fy * theta_d * np.sin(phi_valid) + self.cy
-      
-      # Store coordinates in maps
-      map_x[valid_mask] = x_fish
-      map_y[valid_mask] = y_fish
+      # PARALLEL PROCESSING: Process image in chunks using ThreadPoolExecutor
+      with ThreadPoolExecutor(max_workers=num_cores) as executor:
+        # Create tasks for each chunk
+        futures = []
+        row_ranges = []
+        
+        for row_start in range(0, output_height, chunk_size):
+          row_end = min(row_start + chunk_size, output_height)
+          row_ranges.append((row_start, row_end))
+          
+          future = executor.submit(
+            self._process_row_chunk,
+            row_start, row_end, output_width, output_height,
+            yaw_offset_rad, pitch_offset_rad, fov_h_rad, fov_v_rad, allow_behind_camera
+          )
+          futures.append(future)
+        
+        # Collect results and assemble final maps
+        for future, (row_start, row_end) in zip(futures, row_ranges):
+          map_x_chunk, map_y_chunk, _ = future.result()
+          map_x[row_start:row_end] = map_x_chunk
+          map_y[row_start:row_end] = map_y_chunk
     
     map_generation_time = time.time() - start_time
-    print(f"\033[33mVectorized map generation processing time: {map_generation_time:.4f} seconds\033[0m")
+    print(f"\033[33mParallel vectorized map generation processing time: {map_generation_time:.4f} seconds\033[0m")
     
     return map_x, map_y
   
