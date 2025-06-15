@@ -53,11 +53,18 @@ def create_custom_perspective_view():
   else:
     print("✗ Cache issue - results differ")
   
-  # Show cache information
+  # Show enhanced cache information with LRU details
   cache_info = projector.get_cache_info()
-  print(f"\nCache statistics:")
-  print(f"  Cached projections: {cache_info['cached_projections']}")
+  print(f"\nEnhanced LRU Cache Statistics:")
+  print(f"  Total cached projections: {cache_info['total_cached_projections']}")
+  print(f"  Perspective projections: {cache_info['perspective_projections']}")
   print(f"  Memory usage: {cache_info['memory_usage_mb']:.2f} MB")
+  memory_limit = cache_info['max_memory_mb']
+  print(f"  Memory limit: {'No limit' if memory_limit is None else f'{memory_limit:.1f} MB'}")
+  print(f"  Total cache accesses: {cache_info['total_accesses']}")
+  print(f"  LRU evictions: {cache_info['total_evictions']}")
+  print(f"  Cache age span: {cache_info['cache_age_span_seconds']:.1f} seconds")
+  print(f"  LRU enabled: {cache_info['lru_enabled']}")
   
   return projector, fisheye_img
 
@@ -93,9 +100,12 @@ def demonstrate_fov_comparison():
   
   # Show final cache statistics
   cache_info = projector.get_cache_info()
-  print(f"\nFOV comparison cache statistics:")
-  print(f"  Cached projections: {cache_info['cached_projections']}")
+  print(f"\nFOV comparison enhanced cache statistics:")
+  print(f"  Total cached projections: {cache_info['total_cached_projections']}")
+  print(f"  Perspective projections: {cache_info['perspective_projections']}")
   print(f"  Memory usage: {cache_info['memory_usage_mb']:.2f} MB")
+  print(f"  Total cache accesses: {cache_info['total_accesses']}")
+  print(f"  LRU evictions: {cache_info['total_evictions']}")
 
 def demonstrate_rotation_effects():
   """
@@ -154,9 +164,12 @@ def demonstrate_rotation_effects():
   
   # Show final cache statistics
   cache_info = projector.get_cache_info()
-  print(f"\nRotation effects cache statistics:")
-  print(f"  Cached projections: {cache_info['cached_projections']}")
+  print(f"\nRotation effects enhanced cache statistics:")
+  print(f"  Total cached projections: {cache_info['total_cached_projections']}")
+  print(f"  Perspective projections: {cache_info['perspective_projections']}")
   print(f"  Memory usage: {cache_info['memory_usage_mb']:.2f} MB")
+  print(f"  Total cache accesses: {cache_info['total_accesses']}")
+  print(f"  LRU evictions: {cache_info['total_evictions']}")
 
 if __name__ == "__main__":
   create_custom_perspective_view()

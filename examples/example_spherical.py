@@ -21,11 +21,12 @@ def create_custom_spherical_view():
   # Get image dimensions for validation
   img_height, img_width = fisheye_img.shape[:2]
   
-  # Create SphericalProjection instance with caching capabilities and vectorized processing
+  # Create SphericalProjection instance with default caching capabilities and vectorized processing
   projector = SphericalProjection(camera_params, use_vectorized=True)
   
   print("Creating custom spherical projection views using SphericalProjection class...")
-  print("This demonstrates the flexibility and caching capabilities of the class.")
+  print("This demonstrates the flexibility and advanced LRU caching capabilities of the class.")
+  print("Using default cache manager with LRU eviction")
   
   # Create a wide panoramic view (like a security camera view)
   print("\n1. Creating wide panoramic view (220° horizontal)...")
@@ -120,11 +121,25 @@ def create_custom_spherical_view():
   else:
     print("✗ Cache issue - results differ")
   
-  # Show cache information
+  # Show enhanced cache information with LRU details
   cache_info = projector.get_cache_info()
-  print(f"\nCache statistics:")
-  print(f"  Cached projections: {cache_info['cached_projections']}")
+  print(f"\nEnhanced LRU Cache Statistics:")
+  print(f"  Total cached projections: {cache_info['total_cached_projections']}")
+  print(f"  Spherical projections: {cache_info['spherical_projections']}")
   print(f"  Memory usage: {cache_info['memory_usage_mb']:.2f} MB")
+  memory_limit = cache_info['max_memory_mb']
+  print(f"  Memory limit: {'No limit' if memory_limit is None else f'{memory_limit:.1f} MB'}")
+  print(f"  Total cache accesses: {cache_info['total_accesses']}")
+  print(f"  LRU evictions: {cache_info['total_evictions']}")
+  print(f"  Cache age span: {cache_info['cache_age_span_seconds']:.1f} seconds")
+  print(f"  LRU enabled: {cache_info['lru_enabled']}")
+  
+  # Show memory breakdown (using projector's cache manager)
+  memory_breakdown = projector.cache_manager.get_memory_usage_by_type()
+  print(f"\nMemory usage by projection type:")
+  print(f"  Spherical: {memory_breakdown['spherical_mb']:.2f} MB")
+  print(f"  Perspective: {memory_breakdown['perspective_mb']:.2f} MB")
+  print(f"  Total: {memory_breakdown['total_mb']:.2f} MB")
   
   print("\nCustom spherical projections completed!")
   print("Total files created: 7")
