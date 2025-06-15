@@ -415,6 +415,10 @@ class SphericalProjection:
     # Get projection maps (cached or generate new)
     map_x, map_y = self.get_projection_maps(output_width, output_height, yaw_offset, pitch_offset, fov_horizontal, fov_vertical, allow_behind_camera)
     
+    # Print cache size after get_projection_maps is called
+    cache_info = self.get_cache_info()
+    print(f"Cache status: {cache_info['cached_projections']} projections, {cache_info['memory_usage_mb']:.1f} MB")
+    
     # Apply projection maps
     return apply_spherical_projection_maps(input_img, map_x, map_y)
   

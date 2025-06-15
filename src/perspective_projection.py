@@ -527,6 +527,10 @@ class PerspectiveProjection:
                                           pitch_offset, roll_offset, fov_horizontal, 
                                           virtual_fx, virtual_fy, allow_behind_camera)
     
+    # Print cache size after get_projection_maps is called
+    cache_info = self.get_cache_info()
+    print(f"Cache status: {cache_info['cached_projections']} projections, {cache_info['memory_usage_mb']:.1f} MB")
+    
     # Apply projection maps
     return apply_perspective_projection_maps(input_img, map_x, map_y)
   
