@@ -125,11 +125,11 @@ class FisheyeProjectionGUI:
     
     # Spherical projection parameters
     self.spherical_params = {
-      'output_width': tk.IntVar(value=2048),
-      'output_height': tk.IntVar(value=1024),
+      'output_width': tk.IntVar(value=1000),
+      'output_height': tk.IntVar(value=500),
       'yaw_offset': tk.DoubleVar(value=0.0),
       'pitch_offset': tk.DoubleVar(value=0.0),
-      'fov_horizontal': tk.DoubleVar(value=360.0),
+      'fov_horizontal': tk.DoubleVar(value=270.0),
       'fov_vertical': tk.DoubleVar(value=180.0),
       'allow_behind_camera': tk.BooleanVar(value=True)
     }
@@ -1131,11 +1131,11 @@ Minus Key   : FOV +10 degrees (zoom out)"""
   def reset_spherical_params(self) -> None:
     """Reset spherical parameters to defaults."""
     self.log_spherical_message("Resetting spherical parameters to default values")
-    self.spherical_params['output_width'].set(2048)
-    self.spherical_params['output_height'].set(1024)
+    self.spherical_params['output_width'].set(1000)
+    self.spherical_params['output_height'].set(500)
     self.spherical_params['yaw_offset'].set(0.0)
     self.spherical_params['pitch_offset'].set(0.0)
-    self.spherical_params['fov_horizontal'].set(360.0)
+    self.spherical_params['fov_horizontal'].set(270.0)
     self.spherical_params['fov_vertical'].set(180.0)
     self.spherical_params['allow_behind_camera'].set(True)
     self.update_spherical_images()
