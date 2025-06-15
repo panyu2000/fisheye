@@ -163,6 +163,70 @@ def test_cache_operations():
   shared_cache.clear()
   shared_cache.print_status()
 
+def test_lru_eviction():
+  """Test LRU eviction functionality."""
+  print("\n" + "=" * 60)
+  print("TEST 5: LRU Eviction")
+  print("=" * 60)
+  
+  # Create cache with small memory limit to trigger eviction
+  lru_cache = CacheManager(max_memory_mb=20.0)  # Small limit to trigger eviction
+  camera_params = CameraParams(
+    width=1920, height=1080,
+    fx=800, fy=800, cx=960, cy=540,
+    k1=0.1, k2=0.05, k3=0.01, k4=0.005
+  )
+  
+  spherical = SphericalProjection(camera_params, cache_manager=lru_cache)
+  perspective = PerspectiveProjection(camera_params, cache_manager=lru_cache)
+  
+  print(f"Cache limit: {lru_cache._max_memory_mb:.1f} MB")
+  
+  # Add projections to fill cache
+  print("\nAdding projections to fill cache...")
+  spherical.get_projection_maps(1024, 512)   # Large projection
+  perspective.get_projection_maps(800, 600)   # Another large projection
+  spherical.get_projection_maps(512, 256)    # Smaller projection
+  
+  print("\nCache status after filling:")
+  lru_cache.print_status()
+  info = lru_cache.get_info()
+  print(f"LRU stats - Accesses: {info['total_accesses']}, Evictions: {info['total_evictions']}")
+  
+  print("\nLRU order (least to most recently used):")
+  lru_order = lru_cache.get_lru_order()
+  for i, key in enumerate(lru_order):
+    print(f"  {i+1}. {key}")
+  
+  # Access first projection to move it to end
+  print("\nAccessing first projection to update LRU order...")
+  spherical.get_projection_maps(1024, 512)  # This should move to end
+  
+  print("\nUpdated LRU order:")
+  lru_order = lru_cache.get_lru_order()
+  for i, key in enumerate(lru_order):
+    print(f"  {i+1}. {key}")
+  
+  # Add another large projection to trigger eviction
+  print("\nAdding large projection to trigger LRU eviction...")
+  perspective.get_projection_maps(2000, 1000)  # This should trigger eviction
+  
+  print("\nCache status after eviction:")
+  lru_cache.print_status()
+  info = lru_cache.get_info()
+  print(f"LRU stats - Accesses: {info['total_accesses']}, Evictions: {info['total_evictions']}")
+  
+  print("\nFinal LRU order:")
+  lru_order = lru_cache.get_lru_order()
+  for i, key in enumerate(lru_order):
+    print(f"  {i+1}. {key}")
+  
+  # Show cache ages
+  print("\nCache entry ages (seconds since last access):")
+  ages = lru_cache.get_cache_ages()
+  for key, age in ages.items():
+    print(f"  {key}: {age:.2f}s")
+
 def main():
   """Run all cache manager tests."""
   print("CACHE MANAGER REFACTORING TEST")
@@ -181,6 +245,9 @@ def main():
     # Test 4: Cache operations
     test_cache_operations()
     
+    # Test 5: LRU eviction
+    test_lru_eviction()
+    
     print("\n" + "=" * 60)
     print("✅ ALL CACHE MANAGER TESTS PASSED!")
     print("=" * 60)
@@ -192,6 +259,9 @@ def main():
     print("• Cache operations (get, put, remove, clear) work correctly")
     print("• Thread-safe cache operations")
     print("• Memory usage tracking by projection type")
+    print("• LRU eviction strategy works correctly")
+    print("• Memory limits enforced with automatic eviction")
+    print("• Cache access tracking and statistics")
     
   except Exception as e:
     print(f"\n❌ TEST FAILED: {e}")

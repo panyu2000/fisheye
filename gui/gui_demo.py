@@ -39,6 +39,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.camera_params import parse_camera_params
 from src.perspective_projection import PerspectiveProjection
 from src.spherical_projection import SphericalProjection
+from src.cache_manager import CacheManager
 
 class FisheyeProjectionGUI:
   def __init__(self, root: tk.Tk) -> None:
@@ -56,14 +57,19 @@ class FisheyeProjectionGUI:
       # Get image dimensions for validation
       img_height, img_width = self.fisheye_img.shape[:2]
       
-      # Create projection instances with caching capabilities
+      # Create shared cache manager with 256MB limit and LRU eviction
+      self.shared_cache = CacheManager(max_memory_mb=256.0)
+      
+      # Create projection instances with shared caching capabilities
       self.perspective_projector = PerspectiveProjection(
         self.camera_params, 
-        use_vectorized=True
+        use_vectorized=True,
+        cache_manager=self.shared_cache
       )
       self.spherical_projector = SphericalProjection(
         self.camera_params, 
-        use_vectorized=True
+        use_vectorized=True,
+        cache_manager=self.shared_cache
       )
       
     except Exception as e:
@@ -648,8 +654,10 @@ class FisheyeProjectionGUI:
     
     # Initialize terminal messages
     self.log_perspective_message("Fisheye Perspective Projection Tool initialized")
+    self.log_perspective_message(f"Shared cache initialized with 256MB LRU limit")
     self.log_perspective_message("Ready for processing...")
     self.log_spherical_message("Fisheye Spherical Projection Tool initialized")
+    self.log_spherical_message(f"Shared cache initialized with 256MB LRU limit")
     self.log_spherical_message("Ready for processing...")
   
   def update_perspective_images(self) -> None:
