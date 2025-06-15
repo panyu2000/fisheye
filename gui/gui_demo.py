@@ -650,14 +650,12 @@ Minus Key   : FOV -10 degrees"""
     preset_frame.grid(row=row, column=0, columnspan=2, pady=5)
     
     ttk.Button(preset_frame, text="Full Sphere", command=lambda: self.apply_spherical_preset('full_sphere')).pack(side=tk.LEFT, padx=2)
-    ttk.Button(preset_frame, text="Hemisphere", command=lambda: self.apply_spherical_preset('hemisphere')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame, text="Panoramic", command=lambda: self.apply_spherical_preset('panoramic')).pack(side=tk.LEFT, padx=2)
     
     row += 1
     preset_frame2 = ttk.Frame(parent)
     preset_frame2.grid(row=row, column=0, columnspan=2, pady=5)
     
-    ttk.Button(preset_frame2, text="Equatorial", command=lambda: self.apply_spherical_preset('equatorial')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Look Up", command=lambda: self.apply_spherical_preset('look_up')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Look Down", command=lambda: self.apply_spherical_preset('look_down')).pack(side=tk.LEFT, padx=2)
     
@@ -1152,27 +1150,13 @@ Minus Key   : FOV -10 degrees"""
       self.spherical_params['pitch_offset'].set(0.0)
       self.spherical_params['output_width'].set(2048)
       self.spherical_params['output_height'].set(1024)
-    elif preset_type == 'hemisphere':
-      self.spherical_params['fov_horizontal'].set(360.0)
-      self.spherical_params['fov_vertical'].set(90.0)
-      self.spherical_params['yaw_offset'].set(0.0)
-      self.spherical_params['pitch_offset'].set(0.0)
-      self.spherical_params['output_width'].set(2048)
-      self.spherical_params['output_height'].set(512)
     elif preset_type == 'panoramic':
       self.spherical_params['fov_horizontal'].set(360.0)
       self.spherical_params['fov_vertical'].set(120.0)
       self.spherical_params['yaw_offset'].set(0.0)
       self.spherical_params['pitch_offset'].set(0.0)
-      self.spherical_params['output_width'].set(3600)
-      self.spherical_params['output_height'].set(1200)
-    elif preset_type == 'equatorial':
-      self.spherical_params['fov_horizontal'].set(360.0)
-      self.spherical_params['fov_vertical'].set(60.0)
-      self.spherical_params['yaw_offset'].set(0.0)
-      self.spherical_params['pitch_offset'].set(0.0)
-      self.spherical_params['output_width'].set(3600)
-      self.spherical_params['output_height'].set(600)
+      self.spherical_params['output_width'].set(1500)
+      self.spherical_params['output_height'].set(400)
     elif preset_type == 'look_up':
       self.spherical_params['fov_horizontal'].set(180.0)
       self.spherical_params['fov_vertical'].set(90.0)
