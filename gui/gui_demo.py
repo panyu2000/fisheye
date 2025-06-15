@@ -31,10 +31,11 @@ import numpy as np
 from PIL import Image, ImageTk
 import threading
 import queue
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, List
 import datetime
 import sys
 import os
+import glob
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.camera_params import parse_camera_params
 from src.perspective_projection import PerspectiveProjection
@@ -47,12 +48,25 @@ class FisheyeProjectionGUI:
     self.root.title("Fisheye Projection Tool - Perspective & Spherical")
     self.root.geometry("1600x1000")
     
-    # Load camera parameters and fisheye image
+    # Load camera parameters and scan for images
     try:
       self.camera_params = parse_camera_params("config/camera_intrinsics.yaml")
-      self.fisheye_img = cv2.imread("data/fisheye_img.jpg")
+      
+      # Scan for images matching camera name prefix
+      self.available_images = self.scan_data_folder()
+      
+      # Set default image (try fisheye_img.jpg first, then first available)
+      self.current_image_path = "data/fisheye_img.jpg"
+      if not os.path.exists(self.current_image_path) and self.available_images:
+        self.current_image_path = self.available_images[0]
+      
+      # Load current image
+      self.fisheye_img = cv2.imread(self.current_image_path)
       if self.fisheye_img is None:
-        raise FileNotFoundError("Could not load data/fisheye_img.jpg")
+        if self.available_images:
+          raise FileNotFoundError(f"Could not load any images from data folder. Found files: {self.available_images}")
+        else:
+          raise FileNotFoundError("No matching images found in data folder")
         
       # Get image dimensions for validation
       img_height, img_width = self.fisheye_img.shape[:2]
@@ -120,6 +134,38 @@ class FisheyeProjectionGUI:
       'allow_behind_camera': tk.BooleanVar(value=True)
     }
   
+  def scan_data_folder(self) -> List[str]:
+    """Scan data folder for images matching camera name prefix."""
+    camera_name = self.camera_params.camera_id or "fisheye_camera"
+    data_folder = "data"
+    
+    # Supported image extensions
+    extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif"]
+    
+    # Find all image files
+    all_images = []
+    for ext in extensions:
+      all_images.extend(glob.glob(os.path.join(data_folder, ext)))
+      all_images.extend(glob.glob(os.path.join(data_folder, ext.upper())))
+    
+    # Filter images that start with camera name
+    matching_images = []
+    for img_path in all_images:
+      filename = os.path.basename(img_path)
+      # Check if filename starts with camera name (case insensitive)
+      if filename.lower().startswith(camera_name.lower()):
+        matching_images.append(img_path)
+    
+    # Sort images for consistent ordering
+    matching_images.sort()
+    
+    # Also include default fisheye_img.jpg if it exists
+    default_path = os.path.join(data_folder, "fisheye_img.jpg")
+    if os.path.exists(default_path) and default_path not in matching_images:
+      matching_images.insert(0, default_path)
+    
+    return matching_images
+
   def init_threading(self) -> None:
     """Initialize threading components for both projections."""
     self.perspective_processing_queue = queue.Queue()
@@ -210,6 +256,34 @@ class FisheyeProjectionGUI:
   def setup_perspective_controls(self, parent: ttk.Widget) -> None:
     """Setup perspective projection controls."""
     row = 0
+    
+    # Image selector
+    ttk.Label(parent, text="Source Image Selection", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+    row += 1
+    
+    ttk.Label(parent, text="Image:").grid(row=row, column=0, sticky=tk.W, padx=(10, 5))
+    
+    # Create combobox for image selection
+    self.perspective_image_var = tk.StringVar()
+    image_names = [os.path.basename(path) for path in self.available_images] if self.available_images else ["No images found"]
+    current_image_name = os.path.basename(self.current_image_path) if hasattr(self, 'current_image_path') else ""
+    
+    self.perspective_image_combo = ttk.Combobox(parent, textvariable=self.perspective_image_var, 
+                                              values=image_names, state="readonly", width=25)
+    self.perspective_image_combo.grid(row=row, column=1, sticky=tk.W, pady=2)
+    
+    # Set current selection
+    if current_image_name in image_names:
+      self.perspective_image_combo.set(current_image_name)
+    elif image_names and image_names[0] != "No images found":
+      self.perspective_image_combo.set(image_names[0])
+    
+    self.perspective_image_combo.bind('<<ComboboxSelected>>', self.on_perspective_image_change)
+    row += 1
+    
+    # Separator
+    ttk.Separator(parent, orient='horizontal').grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+    row += 1
     
     # Output dimensions
     ttk.Label(parent, text="Output Dimensions", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
@@ -416,6 +490,34 @@ Minus Key   : FOV -10 degrees"""
   def setup_spherical_controls(self, parent: ttk.Widget) -> None:
     """Setup spherical projection controls."""
     row = 0
+    
+    # Image selector
+    ttk.Label(parent, text="Source Image Selection", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+    row += 1
+    
+    ttk.Label(parent, text="Image:").grid(row=row, column=0, sticky=tk.W, padx=(10, 5))
+    
+    # Create combobox for image selection
+    self.spherical_image_var = tk.StringVar()
+    image_names = [os.path.basename(path) for path in self.available_images] if self.available_images else ["No images found"]
+    current_image_name = os.path.basename(self.current_image_path) if hasattr(self, 'current_image_path') else ""
+    
+    self.spherical_image_combo = ttk.Combobox(parent, textvariable=self.spherical_image_var, 
+                                            values=image_names, state="readonly", width=25)
+    self.spherical_image_combo.grid(row=row, column=1, sticky=tk.W, pady=2)
+    
+    # Set current selection
+    if current_image_name in image_names:
+      self.spherical_image_combo.set(current_image_name)
+    elif image_names and image_names[0] != "No images found":
+      self.spherical_image_combo.set(image_names[0])
+    
+    self.spherical_image_combo.bind('<<ComboboxSelected>>', self.on_spherical_image_change)
+    row += 1
+    
+    # Separator
+    ttk.Separator(parent, orient='horizontal').grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+    row += 1
     
     # Output dimensions
     ttk.Label(parent, text="Output Dimensions", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
@@ -724,6 +826,59 @@ Minus Key   : FOV -10 degrees"""
     
     self.perspective_pending_update_id = self.root.after(100, self.update_perspective_images)
   
+  def on_perspective_image_change(self, event) -> None:
+    """Handle perspective image selection change."""
+    selected_name = self.perspective_image_var.get()
+    if selected_name and selected_name != "No images found":
+      # Find the full path for the selected image
+      for img_path in self.available_images:
+        if os.path.basename(img_path) == selected_name:
+          self.load_new_image(img_path)
+          self.log_perspective_message(f"Switched to image: {selected_name}")
+          break
+
+  def on_spherical_image_change(self, event) -> None:
+    """Handle spherical image selection change."""
+    selected_name = self.spherical_image_var.get()
+    if selected_name and selected_name != "No images found":
+      # Find the full path for the selected image
+      for img_path in self.available_images:
+        if os.path.basename(img_path) == selected_name:
+          self.load_new_image(img_path)
+          self.log_spherical_message(f"Switched to image: {selected_name}")
+          break
+
+  def load_new_image(self, image_path: str) -> None:
+    """Load a new fisheye image and update projections."""
+    try:
+      new_img = cv2.imread(image_path)
+      if new_img is None:
+        raise ValueError(f"Could not load image: {image_path}")
+      
+      self.fisheye_img = new_img
+      self.current_image_path = image_path
+      
+      # Update both combo boxes to show the same selection
+      image_name = os.path.basename(image_path)
+      if hasattr(self, 'perspective_image_combo'):
+        self.perspective_image_combo.set(image_name)
+      if hasattr(self, 'spherical_image_combo'):
+        self.spherical_image_combo.set(image_name)
+      
+      # Clear cache since we have a new image
+      if hasattr(self, 'shared_cache'):
+        self.shared_cache.clear()
+      
+      # Update both projections with the new image
+      self.update_perspective_images()
+      self.update_spherical_images()
+      
+    except Exception as e:
+      error_msg = f"Failed to load image {image_path}: {e}"
+      self.log_perspective_message(error_msg)
+      self.log_spherical_message(error_msg)
+      messagebox.showerror("Image Load Error", error_msg)
+
   def on_spherical_param_change(self) -> None:
     """Handle spherical parameter changes with debouncing."""
     if hasattr(self, 'spherical_pending_update_id') and self.spherical_pending_update_id:
