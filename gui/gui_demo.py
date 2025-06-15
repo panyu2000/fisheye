@@ -1304,15 +1304,47 @@ Minus Key   : FOV -10 degrees"""
     # Bind keyboard events to the root window
     self.root.bind('<Key>', self.on_key_press)
     
+    # Bind click events to pull focus out of text inputs
+    self.setup_focus_management()
+    
     # Make the root window focusable so it can receive key events
     self.root.focus_set()
     
     # Log keyboard control setup
     self.log_perspective_message("Keyboard controls enabled: Arrow keys adjust pitch/yaw, +/- keys adjust FOV by 10°")
     self.log_spherical_message("Keyboard controls enabled: Arrow keys adjust pitch/yaw, +/- keys adjust FOV by 10°")
+
+  def setup_focus_management(self) -> None:
+    """Setup focus management to pull focus from text inputs when clicking elsewhere."""
+    def on_click_focus_out(event):
+      """Pull focus to root when clicking on non-input widgets."""
+      # Only pull focus if the clicked widget is not a text input
+      if not isinstance(event.widget, (tk.Entry, ttk.Entry, ttk.Spinbox, tk.Text, ttk.Combobox)):
+        self.root.focus_set()
+    
+    # Recursively bind click events to all widgets
+    def bind_click_recursive(widget):
+      try:
+        # Bind click event to this widget
+        widget.bind('<Button-1>', on_click_focus_out, add=True)
+        
+        # Recursively bind to all children
+        for child in widget.winfo_children():
+          bind_click_recursive(child)
+      except tk.TclError:
+        # Some widgets might not support binding, skip them
+        pass
+    
+    # Start binding from the root window
+    bind_click_recursive(self.root)
   
   def on_key_press(self, event) -> None:
     """Handle keyboard events for arrow key controls."""
+    # Check if focus is on a text input widget - if so, don't trigger shortcuts
+    focused_widget = self.root.focus_get()
+    if focused_widget and isinstance(focused_widget, (tk.Entry, ttk.Entry, ttk.Spinbox, tk.Text, ttk.Combobox)):
+      return  # Let the widget handle the key event normally
+    
     # Get current active tab
     selected_tab = self.notebook.select()
     tab_text = self.notebook.tab(selected_tab, "text")
