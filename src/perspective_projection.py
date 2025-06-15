@@ -57,7 +57,7 @@ def apply_perspective_projection_maps(img: np.ndarray, map_x: np.ndarray, map_y:
   result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
   
   remap_time = time.time() - start_time
-  print(f"OpenCV remap processing time: {remap_time:.4f} seconds")
+  print(f"\033[33mOpenCV remap processing time: {remap_time:.4f} seconds\033[0m")
   
   return result
 
@@ -240,7 +240,7 @@ class PerspectiveProjection:
         map_y[v, u] = y_fish
     
     map_generation_time = time.time() - start_time
-    print(f"Reference map generation processing time: {map_generation_time:.4f} seconds")
+    print(f"\033[33mReference map generation processing time: {map_generation_time:.4f} seconds\033[0m")
     
     return map_x, map_y
   
@@ -384,7 +384,7 @@ class PerspectiveProjection:
         map_y[valid_mask] = y_fish
     
     map_generation_time = time.time() - start_time
-    print(f"Vectorized map generation processing time: {map_generation_time:.4f} seconds")
+    print(f"\033[33mVectorized map generation processing time: {map_generation_time:.4f} seconds\033[0m")
     
     return map_x, map_y
   
