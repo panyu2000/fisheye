@@ -85,6 +85,9 @@ class FisheyeProjectionGUI:
     # Setup UI
     self.setup_ui()
     
+    # Setup keyboard controls
+    self.setup_keyboard_controls()
+    
     # Start initial processing
     self.update_images()
     
@@ -370,6 +373,45 @@ class FisheyeProjectionGUI:
     ttk.Button(preset_frame2, text="Look Up", command=lambda: self.apply_perspective_preset('up')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Look Down", command=lambda: self.apply_perspective_preset('down')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Side View", command=lambda: self.apply_perspective_preset('side')).pack(side=tk.LEFT, padx=2)
+    
+    # Keyboard shortcuts
+    row += 1
+    ttk.Separator(parent, orient='horizontal').grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+    row += 1
+    
+    ttk.Label(parent, text="Keyboard Shortcuts", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+    row += 1
+    
+    shortcuts_frame = ttk.Frame(parent)
+    shortcuts_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=(10, 0))
+    
+    # Create shortcuts text with better formatting
+    shortcuts_text = tk.Text(
+      shortcuts_frame,
+      height=6,
+      width=40,
+      font=('Consolas', 8),
+      bg='#f0f0f0',
+      fg='#333333',
+      wrap=tk.WORD,
+      state=tk.DISABLED,
+      cursor='arrow',
+      relief=tk.FLAT,
+      borderwidth=1
+    )
+    shortcuts_text.pack(fill=tk.BOTH, expand=True)
+    
+    # Add shortcuts content
+    shortcuts_content = """Up Arrow    : Pitch +10 degrees
+Down Arrow  : Pitch -10 degrees
+Left Arrow  : Yaw -10 degrees
+Right Arrow : Yaw +10 degrees
+Plus Key    : FOV +10 degrees
+Minus Key   : FOV -10 degrees"""
+    
+    shortcuts_text.configure(state=tk.NORMAL)
+    shortcuts_text.insert('1.0', shortcuts_content)
+    shortcuts_text.configure(state=tk.DISABLED)
   
   def setup_spherical_controls(self, parent: ttk.Widget) -> None:
     """Setup spherical projection controls."""
@@ -516,6 +558,45 @@ class FisheyeProjectionGUI:
     ttk.Button(preset_frame2, text="Equatorial", command=lambda: self.apply_spherical_preset('equatorial')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Look Up", command=lambda: self.apply_spherical_preset('look_up')).pack(side=tk.LEFT, padx=2)
     ttk.Button(preset_frame2, text="Look Down", command=lambda: self.apply_spherical_preset('look_down')).pack(side=tk.LEFT, padx=2)
+    
+    # Keyboard shortcuts
+    row += 1
+    ttk.Separator(parent, orient='horizontal').grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+    row += 1
+    
+    ttk.Label(parent, text="Keyboard Shortcuts", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+    row += 1
+    
+    shortcuts_frame = ttk.Frame(parent)
+    shortcuts_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=(10, 0))
+    
+    # Create shortcuts text with better formatting
+    shortcuts_text = tk.Text(
+      shortcuts_frame,
+      height=6,
+      width=40,
+      font=('Consolas', 8),
+      bg='#f0f0f0',
+      fg='#333333',
+      wrap=tk.WORD,
+      state=tk.DISABLED,
+      cursor='arrow',
+      relief=tk.FLAT,
+      borderwidth=1
+    )
+    shortcuts_text.pack(fill=tk.BOTH, expand=True)
+    
+    # Add shortcuts content
+    shortcuts_content = """Up Arrow    : Pitch +10 degrees
+Down Arrow  : Pitch -10 degrees
+Left Arrow  : Yaw -10 degrees
+Right Arrow : Yaw +10 degrees
+Plus Key    : FOV +10 degrees
+Minus Key   : FOV -10 degrees"""
+    
+    shortcuts_text.configure(state=tk.NORMAL)
+    shortcuts_text.insert('1.0', shortcuts_content)
+    shortcuts_text.configure(state=tk.DISABLED)
   
   def setup_perspective_image_display(self, parent: ttk.Widget) -> None:
     """Setup perspective projection image display."""
@@ -632,6 +713,9 @@ class FisheyeProjectionGUI:
     elif tab_text == "Spherical Projection":
       self.log_spherical_message("Switched to Spherical Projection")
       self.update_spherical_images()
+    
+    # Ensure focus stays on root window for keyboard controls
+    self.root.focus_set()
   
   def on_perspective_param_change(self) -> None:
     """Handle perspective parameter changes with debouncing."""
@@ -801,7 +885,7 @@ class FisheyeProjectionGUI:
       pass
     
     # Schedule next check
-    self.root.after(100, self.check_results)
+    self.root.after(30, self.check_results)
   
   def update_perspective_projected_image(self, projected_img: np.ndarray) -> None:
     """Update perspective projected image display."""
@@ -1075,6 +1159,97 @@ class FisheyeProjectionGUI:
     
     # Trigger debounced update for button controls
     self.on_spherical_param_change()
+  
+  def setup_keyboard_controls(self) -> None:
+    """Setup keyboard controls for arrow key navigation."""
+    # Bind keyboard events to the root window
+    self.root.bind('<Key>', self.on_key_press)
+    
+    # Make the root window focusable so it can receive key events
+    self.root.focus_set()
+    
+    # Log keyboard control setup
+    self.log_perspective_message("Keyboard controls enabled: Arrow keys adjust pitch/yaw, +/- keys adjust FOV by 10°")
+    self.log_spherical_message("Keyboard controls enabled: Arrow keys adjust pitch/yaw, +/- keys adjust FOV by 10°")
+  
+  def on_key_press(self, event) -> None:
+    """Handle keyboard events for arrow key controls."""
+    # Get current active tab
+    selected_tab = self.notebook.select()
+    tab_text = self.notebook.tab(selected_tab, "text")
+    
+    # Determine which parameter set to use based on active tab
+    if tab_text == "Perspective Projection":
+      params = self.perspective_params
+      log_func = self.log_perspective_message
+      update_func = self.on_perspective_param_change
+    elif tab_text == "Spherical Projection":
+      params = self.spherical_params
+      log_func = self.log_spherical_message
+      update_func = self.on_spherical_param_change
+    else:
+      return
+    
+    # Handle arrow key presses
+    if event.keysym == 'Up':
+      # Up arrow increases pitch by 10 degrees
+      current_pitch = params['pitch_offset'].get()
+      new_pitch = max(-90, min(90, current_pitch + 10))
+      params['pitch_offset'].set(new_pitch)
+      log_func(f"Keyboard: Pitch increased to {new_pitch:.1f}° (Up arrow)")
+      update_func()
+      
+    elif event.keysym == 'Down':
+      # Down arrow decreases pitch by 10 degrees
+      current_pitch = params['pitch_offset'].get()
+      new_pitch = max(-90, min(90, current_pitch - 10))
+      params['pitch_offset'].set(new_pitch)
+      log_func(f"Keyboard: Pitch decreased to {new_pitch:.1f}° (Down arrow)")
+      update_func()
+      
+    elif event.keysym == 'Left':
+      # Left arrow decreases yaw by 10 degrees
+      current_yaw = params['yaw_offset'].get()
+      new_yaw = current_yaw - 10
+      # Wrap around -180 to 180 range
+      if new_yaw < -180:
+        new_yaw += 360
+      params['yaw_offset'].set(new_yaw)
+      log_func(f"Keyboard: Yaw decreased to {new_yaw:.1f}° (Left arrow)")
+      update_func()
+      
+    elif event.keysym == 'Right':
+      # Right arrow increases yaw by 10 degrees
+      current_yaw = params['yaw_offset'].get()
+      new_yaw = current_yaw + 10
+      # Wrap around -180 to 180 range
+      if new_yaw > 180:
+        new_yaw -= 360
+      params['yaw_offset'].set(new_yaw)
+      log_func(f"Keyboard: Yaw increased to {new_yaw:.1f}° (Right arrow)")
+      update_func()
+      
+    elif event.keysym == 'plus' or event.keysym == 'equal':
+      # Plus key increases horizontal FOV by 10 degrees
+      current_fov = params['fov_horizontal'].get()
+      if tab_text == "Perspective Projection":
+        new_fov = max(10, min(175, current_fov + 10))  # Perspective FOV range
+      else:  # Spherical projection
+        new_fov = max(60, min(360, current_fov + 10))  # Spherical FOV range
+      params['fov_horizontal'].set(new_fov)
+      log_func(f"Keyboard: Horizontal FOV increased to {new_fov:.1f}° (+ key)")
+      update_func()
+      
+    elif event.keysym == 'minus':
+      # Minus key decreases horizontal FOV by 10 degrees
+      current_fov = params['fov_horizontal'].get()
+      if tab_text == "Perspective Projection":
+        new_fov = max(10, min(175, current_fov - 10))  # Perspective FOV range
+      else:  # Spherical projection
+        new_fov = max(60, min(360, current_fov - 10))  # Spherical FOV range
+      params['fov_horizontal'].set(new_fov)
+      log_func(f"Keyboard: Horizontal FOV decreased to {new_fov:.1f}° (- key)")
+      update_func()
 
 def main() -> None:
   root = tk.Tk()
